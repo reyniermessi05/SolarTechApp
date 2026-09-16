@@ -26,6 +26,7 @@ import androidx.navigation.navArgument
 import com.example.solarapp.ui.screens.FaultDetailScreen
 import com.example.solarapp.ui.screens.FaultFinderScreen
 import com.example.solarapp.ui.screens.HomeScreen
+import com.example.solarapp.ui.screens.PdfViewerScreen
 import com.example.solarapp.ui.screens.PlaceholderScreen
 import com.example.solarapp.ui.screens.TroubleshootingScreen
 
@@ -41,6 +42,9 @@ sealed class Screen(val route: String, val title: String) {
     }
     object FaultDetail : Screen("faultDetail/{faultId}/{faultCode}", "Fault Detail") {
         fun createRoute(faultId: Int, faultCode: String) = "faultDetail/$faultId/${Uri.encode(faultCode)}"
+    }
+    object PdfViewer : Screen("pdfViewer/{fileName}", "PDF Viewer") {
+        fun createRoute(fileName: String) = "pdfViewer/${Uri.encode(fileName)}"
     }
 }
 
@@ -66,6 +70,10 @@ fun AppNavigation() {
         currentRoute?.startsWith("faultDetail/") == true -> {
             val faultCode = Uri.decode(navBackStackEntry?.arguments?.getString("faultCode") ?: "")
             faultCode
+        }
+        currentRoute?.startsWith("pdfViewer/") == true -> {
+            val fileName = Uri.decode(navBackStackEntry?.arguments?.getString("fileName") ?: "")
+            fileName
         }
         else -> androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.app_name)
     }
@@ -161,7 +169,19 @@ fun AppNavigation() {
                 )
             ) { backStackEntry ->
                 val faultId = backStackEntry.arguments?.getInt("faultId") ?: 0
-                FaultDetailScreen(faultId = faultId)
+                FaultDetailScreen(
+                    faultId = faultId,
+                    onNavigateToPdf = { fileName ->
+                        navController.navigate(Screen.PdfViewer.createRoute(fileName))
+                    }
+                )
+            }
+            composable(
+                route = Screen.PdfViewer.route,
+                arguments = listOf(navArgument("fileName") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val fileName = Uri.decode(backStackEntry.arguments?.getString("fileName") ?: "")
+                PdfViewerScreen(fileName = fileName)
             }
         }
     }

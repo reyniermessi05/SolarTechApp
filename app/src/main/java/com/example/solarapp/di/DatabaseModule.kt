@@ -25,49 +25,14 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideAppDatabase(
-        @ApplicationContext context: Context,
-        provider: Provider<FaultDao>
+        @ApplicationContext context: Context
     ): AppDatabase {
         return Room.databaseBuilder(
             context,
             AppDatabase::class.java,
             "solar_app_db"
         ).fallbackToDestructiveMigration()
-        .addCallback(object : RoomDatabase.Callback() {
-            override fun onCreate(db: SupportSQLiteDatabase) {
-                super.onCreate(db)
-                CoroutineScope(Dispatchers.IO).launch {
-                    val faultDao = provider.get()
-                    val mockData = listOf(
-                        FaultCode(
-                            equipmentType = "HEM Gen. 3",
-                            faultCode = "ERR-001",
-                            issueTitle = "Overheating",
-                            troubleshootingSteps = "1. Medir voltaje en la entrada DC. 2. Si el voltaje es cero, revisar fusibles según el diagrama [Enlace: Schematic_HEM3_Rev4.pdf]",
-                            issueTitleEs = "Sobrecalentamiento",
-                            troubleshootingStepsEs = "1. Medir voltaje en la entrada DC. 2. Si el voltaje es cero, revisar fusibles según el diagrama [Enlace: Schematic_HEM3_Rev4.pdf]"
-                        ),
-                        FaultCode(
-                            equipmentType = "HEM Gen. 2",
-                            faultCode = "ERR-002",
-                            issueTitle = "Communication Loss",
-                            troubleshootingSteps = "Check ethernet cables. See diagram [Enlace: Network_HEM2_Rev1.pdf]",
-                            issueTitleEs = "Pérdida de Comunicación",
-                            troubleshootingStepsEs = "Revisar cables de red. Ver diagrama [Enlace: Network_HEM2_Rev1.pdf]"
-                        ),
-                        FaultCode(
-                            equipmentType = "DC/DC Converter Gen. 3",
-                            faultCode = "ERR-003",
-                            issueTitle = "Voltage Drop",
-                            troubleshootingSteps = "Verify input voltage.",
-                            issueTitleEs = "Caída de Voltaje",
-                            troubleshootingStepsEs = "Verificar voltaje de entrada."
-                        )
-                    )
-                    faultDao.insertAll(mockData)
-                }
-            }
-        }).build()
+        .build()
     }
 
     @Provides

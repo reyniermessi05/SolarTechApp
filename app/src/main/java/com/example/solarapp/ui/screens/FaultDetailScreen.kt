@@ -7,7 +7,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,43 +33,61 @@ import com.example.solarapp.ui.FaultViewModel
 @Composable
 fun FaultDetailScreen(
     faultId: Int,
+    onNavigateToPdf: (String) -> Unit = {},
     viewModel: FaultViewModel = hiltViewModel()
 ) {
     val faultCode by remember(faultId) { viewModel.getFaultCodeById(faultId) }.collectAsState(initial = null)
 
     val configuration = LocalConfiguration.current
     val isSpanish = configuration.locales.get(0)?.language == "es"
+    val context = LocalContext.current
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState())
-    ) {
-        val currentFaultCode = faultCode
-        if (currentFaultCode != null) {
-            val title = if (isSpanish && currentFaultCode.issueTitleEs.isNotEmpty()) currentFaultCode.issueTitleEs else currentFaultCode.issueTitle
-            val steps = if (isSpanish && currentFaultCode.troubleshootingStepsEs.isNotEmpty()) currentFaultCode.troubleshootingStepsEs else currentFaultCode.troubleshootingSteps
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = {
+                    Toast.makeText(context, "AI Assistant (Requiere Conexión) - Próximamente", Toast.LENGTH_SHORT).show()
+                }
+            ) {
+                Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = "AI Assistant")
+            }
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            val currentFaultCode = faultCode
+            if (currentFaultCode != null) {
+                val title = if (isSpanish && currentFaultCode.issueTitleEs.isNotEmpty()) currentFaultCode.issueTitleEs else currentFaultCode.issueTitle
+                val steps = if (isSpanish && currentFaultCode.troubleshootingStepsEs.isNotEmpty()) currentFaultCode.troubleshootingStepsEs else currentFaultCode.troubleshootingSteps
 
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
 
-            Text(
-                text = androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.troubleshooting_steps),
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
+                Text(
+                    text = androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.troubleshooting_steps),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
 
-            LinkableText(
-                text = steps,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-        } else {
-            Text(androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.loading))
+                LinkableText(
+                    text = steps,
+                    modifier = Modifier.padding(bottom = 16.dp),
+                    onLinkClick = { fileName ->
+                        onNavigateToPdf(fileName)
+                    }
+                )
+            } else {
+                Text(androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.loading))
+            }
         }
     }
 }
@@ -72,9 +95,9 @@ fun FaultDetailScreen(
 @Composable
 fun LinkableText(
     text: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onLinkClick: (String) -> Unit = {}
 ) {
-    val context = LocalContext.current
     val linkRegex = "\\[Enlace: (.*?)\\]".toRegex()
 
     val matches = linkRegex.findAll(text).toList()
@@ -107,7 +130,7 @@ fun LinkableText(
         onClick = { offset ->
             annotatedString.getStringAnnotations(tag = "LINK", start = offset, end = offset)
                 .firstOrNull()?.let { annotation ->
-                    Toast.makeText(context, "Abriendo documento: ${annotation.item}", Toast.LENGTH_SHORT).show()
+                    onLinkClick(annotation.item)
                 }
         }
     )
