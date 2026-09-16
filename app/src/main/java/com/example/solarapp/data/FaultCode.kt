@@ -9,5 +9,7 @@ data class FaultCode(
     val equipmentType: String,
     val faultCode: String,
     val issueTitle: String,
-    val troubleshootingSteps: String
+    val troubleshootingSteps: String,
+    val issueTitleEs: String = "",
+    val troubleshootingStepsEs: String = ""
 )
