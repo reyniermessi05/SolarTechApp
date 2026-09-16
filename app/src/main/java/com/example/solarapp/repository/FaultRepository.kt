@@ -13,4 +13,8 @@ class FaultRepository @Inject constructor(
     fun searchFaultCodes(equipmentType: String, query: String): Flow<List<FaultCode>> {
         return faultDao.searchFaultCodes(equipmentType, query)
     }
+
+    fun getFaultCodeById(id: Int): Flow<FaultCode?> {
+        return faultDao.getFaultCodeById(id)
+    }
 }

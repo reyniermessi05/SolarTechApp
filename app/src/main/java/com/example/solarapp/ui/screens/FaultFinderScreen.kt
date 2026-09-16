@@ -19,10 +19,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.solarapp.ui.FaultViewModel
+import androidx.compose.foundation.clickable
 
 @Composable
 fun FaultFinderScreen(
     model: String,
+    onNavigateToDetail: (Int, String) -> Unit = { _, _ -> },
     viewModel: FaultViewModel = hiltViewModel()
 ) {
     LaunchedEffect(model) {
@@ -54,7 +56,8 @@ fun FaultFinderScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 8.dp)
+                        .clickable { onNavigateToDetail(fault.id, fault.faultCode) },
                     elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
                     Column(

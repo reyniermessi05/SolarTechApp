@@ -42,7 +42,7 @@ object DatabaseModule {
                             equipmentType = "HEM Gen. 3",
                             faultCode = "ERR-001",
                             issueTitle = "Overheating",
-                            troubleshootingSteps = "Revisar lecturas del sensor de temperatura número uno del panel posterior"
+                            troubleshootingSteps = "1. Medir voltaje en la entrada DC. 2. Si el voltaje es cero, revisar fusibles según el diagrama [Enlace: Schematic_HEM3_Rev4.pdf]"
                         ),
                         FaultCode(
                             equipmentType = "HEM Gen. 2",

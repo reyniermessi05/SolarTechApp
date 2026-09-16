@@ -21,6 +21,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.solarapp.ui.screens.FaultDetailScreen
 import com.example.solarapp.ui.screens.FaultFinderScreen
 import com.example.solarapp.ui.screens.HomeScreen
 import com.example.solarapp.ui.screens.PlaceholderScreen
@@ -35,6 +36,9 @@ sealed class Screen(val route: String, val title: String) {
     object Report : Screen("report", "Report")
     object FaultFinder : Screen("faultFinder/{model}", "Fault Finder") {
         fun createRoute(model: String) = "faultFinder/${Uri.encode(model)}"
+    }
+    object FaultDetail : Screen("faultDetail/{faultId}/{faultCode}", "Fault Detail") {
+        fun createRoute(faultId: Int, faultCode: String) = "faultDetail/$faultId/${Uri.encode(faultCode)}"
     }
 }
 
@@ -56,6 +60,10 @@ fun AppNavigation() {
         currentRoute?.startsWith("faultFinder/") == true -> {
             val model = Uri.decode(navBackStackEntry?.arguments?.getString("model") ?: "")
             "Fault Finder - $model"
+        }
+        currentRoute?.startsWith("faultDetail/") == true -> {
+            val faultCode = Uri.decode(navBackStackEntry?.arguments?.getString("faultCode") ?: "")
+            faultCode
         }
         else -> "Solar App"
     }
@@ -117,7 +125,22 @@ fun AppNavigation() {
                 arguments = listOf(navArgument("model") { type = NavType.StringType })
             ) { backStackEntry ->
                 val model = Uri.decode(backStackEntry.arguments?.getString("model") ?: "")
-                FaultFinderScreen(model = model)
+                FaultFinderScreen(
+                    model = model,
+                    onNavigateToDetail = { faultId, faultCode ->
+                        navController.navigate(Screen.FaultDetail.createRoute(faultId, faultCode))
+                    }
+                )
+            }
+            composable(
+                route = Screen.FaultDetail.route,
+                arguments = listOf(
+                    navArgument("faultId") { type = NavType.IntType },
+                    navArgument("faultCode") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val faultId = backStackEntry.arguments?.getInt("faultId") ?: 0
+                FaultDetailScreen(faultId = faultId)
             }
         }
     }
