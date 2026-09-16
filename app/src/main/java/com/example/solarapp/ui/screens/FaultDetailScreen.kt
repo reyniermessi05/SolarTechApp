@@ -15,6 +15,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -31,6 +32,9 @@ fun FaultDetailScreen(
 ) {
     val faultCode by remember(faultId) { viewModel.getFaultCodeById(faultId) }.collectAsState(initial = null)
 
+    val configuration = LocalConfiguration.current
+    val isSpanish = configuration.locales.get(0)?.language == "es"
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -39,25 +43,28 @@ fun FaultDetailScreen(
     ) {
         val currentFaultCode = faultCode
         if (currentFaultCode != null) {
+            val title = if (isSpanish && currentFaultCode.issueTitleEs.isNotEmpty()) currentFaultCode.issueTitleEs else currentFaultCode.issueTitle
+            val steps = if (isSpanish && currentFaultCode.troubleshootingStepsEs.isNotEmpty()) currentFaultCode.troubleshootingStepsEs else currentFaultCode.troubleshootingSteps
+
             Text(
-                text = currentFaultCode.issueTitle,
+                text = title,
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
             Text(
-                text = "Troubleshooting Steps",
+                text = androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.troubleshooting_steps),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
             LinkableText(
-                text = currentFaultCode.troubleshootingSteps,
+                text = steps,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
         } else {
-            Text("Loading...")
+            Text(androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.loading))
         }
     }
 }

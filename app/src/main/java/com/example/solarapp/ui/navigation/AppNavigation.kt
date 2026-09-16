@@ -6,6 +6,8 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -51,7 +53,7 @@ fun AppNavigation() {
     
     // Determine title dynamically
     val currentTitle = when {
-        currentRoute == Screen.Home.route -> Screen.Home.title
+        currentRoute == Screen.Home.route -> androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.title_home)
         currentRoute == Screen.Troubleshooting.route -> Screen.Troubleshooting.title
         currentRoute == Screen.Loto.route -> Screen.Loto.title
         currentRoute == Screen.Jha.route -> Screen.Jha.title
@@ -65,7 +67,7 @@ fun AppNavigation() {
             val faultCode = Uri.decode(navBackStackEntry?.arguments?.getString("faultCode") ?: "")
             faultCode
         }
-        else -> "Solar App"
+        else -> androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.app_name)
     }
 
     Scaffold(
@@ -81,6 +83,25 @@ fun AppNavigation() {
                     if (currentRoute != Screen.Home.route) {
                         IconButton(onClick = { navController.navigateUp() }) {
                             Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
+                        }
+                    }
+                },
+                actions = {
+                    if (currentRoute == Screen.Home.route) {
+                        IconButton(onClick = {
+                            val currentLocales = AppCompatDelegate.getApplicationLocales()
+                            val newLocale = if (currentLocales.isEmpty || currentLocales.get(0)?.language == "en") {
+                                "es"
+                            } else {
+                                "en"
+                            }
+                            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(newLocale))
+                        }) {
+                            Text(
+                                text = "EN/ES",
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                style = MaterialTheme.typography.labelLarge
+                            )
                         }
                     }
                 }

@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.solarapp.ui.FaultViewModel
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.LocalConfiguration
 
 @Composable
 fun FaultFinderScreen(
@@ -34,6 +35,9 @@ fun FaultFinderScreen(
     val searchQuery by viewModel.searchQuery.collectAsState()
     val faultCodes by viewModel.faultCodes.collectAsState()
 
+    val configuration = LocalConfiguration.current
+    val isSpanish = configuration.locales.get(0)?.language == "es"
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -43,7 +47,7 @@ fun FaultFinderScreen(
             value = searchQuery,
             onValueChange = { viewModel.onSearchQueryChange(it) },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Search Fault Codes...") },
+            label = { Text(androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.search_fault_codes)) },
             singleLine = true
         )
 
@@ -63,13 +67,15 @@ fun FaultFinderScreen(
                     Column(
                         modifier = Modifier.padding(16.dp)
                     ) {
+                        val title = if (isSpanish && fault.issueTitleEs.isNotEmpty()) fault.issueTitleEs else fault.issueTitle
+                        val steps = if (isSpanish && fault.troubleshootingStepsEs.isNotEmpty()) fault.troubleshootingStepsEs else fault.troubleshootingSteps
                         Text(
-                            text = "${fault.faultCode}: ${fault.issueTitle}",
+                            text = "${fault.faultCode}: $title",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = fault.troubleshootingSteps,
+                            text = steps,
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.padding(top = 8.dp)
                         )

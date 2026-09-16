@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Solar App</string>
+    <string name="title_home">Solar Field Tool</string>
+    <string name="search_fault_codes">Search Fault Codes...</string>
+    <string name="troubleshooting_steps">Troubleshooting Steps</string>
+    <string name="loading">Loading...</string>
+</resources>
