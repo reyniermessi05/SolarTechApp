@@ -64,7 +64,7 @@ dependencies {
     
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.7")
-
+    
     // AppCompat for Locale Delegate
     implementation("androidx.appcompat:appcompat:1.6.1")
 
