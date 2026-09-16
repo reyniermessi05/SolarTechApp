@@ -11,6 +11,9 @@ interface FaultDao {
     @Query("SELECT * FROM fault_codes WHERE equipmentType = :equipmentType AND (faultCode LIKE '%' || :query || '%' OR issueTitle LIKE '%' || :query || '%')")
     fun searchFaultCodes(equipmentType: String, query: String): Flow<List<FaultCode>>
 
+    @Query("SELECT * FROM fault_codes WHERE id = :id")
+    fun getFaultCodeById(id: Int): Flow<FaultCode?>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(faultCodes: List<FaultCode>)
 }

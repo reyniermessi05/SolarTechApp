@@ -1,0 +1,106 @@
+package com.example.solarapp.ui.screens
+
+import android.widget.Toast
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.solarapp.ui.FaultViewModel
+
+@Composable
+fun FaultDetailScreen(
+    faultId: Int,
+    viewModel: FaultViewModel = hiltViewModel()
+) {
+    val faultCode by remember(faultId) { viewModel.getFaultCodeById(faultId) }.collectAsState(initial = null)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        if (faultCode != null) {
+            Text(
+                text = faultCode.issueTitle,
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            Text(
+                text = "Troubleshooting Steps",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            LinkableText(
+                text = faultCode.troubleshootingSteps,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+        } else {
+            Text("Loading...")
+        }
+    }
+}
+
+@Composable
+fun LinkableText(
+    text: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val linkRegex = "\\[Enlace: (.*?)\\]".toRegex()
+
+    val matches = linkRegex.findAll(text).toList()
+
+    val annotatedString = buildAnnotatedString {
+        var lastIndex = 0
+        for (match in matches) {
+            val linkText = match.groupValues[1]
+            append(text.substring(lastIndex, match.range.first))
+
+            pushStringAnnotation(tag = "LINK", annotation = linkText)
+            withStyle(
+                style = SpanStyle(
+                    color = MaterialTheme.colorScheme.primary,
+                    textDecoration = TextDecoration.Underline
+                )
+            ) {
+                append(linkText)
+            }
+            pop()
+            lastIndex = match.range.last + 1
+        }
+        append(text.substring(lastIndex))
+    }
+
+    ClickableText(
+        text = annotatedString,
+        modifier = modifier,
+        style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+        onClick = { offset ->
+            annotatedString.getStringAnnotations(tag = "LINK", start = offset, end = offset)
+                .firstOrNull()?.let { annotation ->
+                    Toast.makeText(context, "Abriendo documento: ${annotation.item}", Toast.LENGTH_SHORT).show()
+                }
+        }
+    )
+}

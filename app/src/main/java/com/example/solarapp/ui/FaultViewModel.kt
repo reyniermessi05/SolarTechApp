@@ -42,4 +42,8 @@ class FaultViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
+
+    fun getFaultCodeById(id: Int): kotlinx.coroutines.flow.Flow<FaultCode?> {
+        return faultRepository.getFaultCodeById(id)
+    }
 }
