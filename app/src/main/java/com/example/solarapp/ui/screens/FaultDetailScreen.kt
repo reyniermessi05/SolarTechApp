@@ -37,9 +37,10 @@ fun FaultDetailScreen(
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        if (faultCode != null) {
+        val currentFaultCode = faultCode
+        if (currentFaultCode != null) {
             Text(
-                text = faultCode.issueTitle,
+                text = currentFaultCode.issueTitle,
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(bottom = 16.dp)
@@ -52,7 +53,7 @@ fun FaultDetailScreen(
             )
 
             LinkableText(
-                text = faultCode.troubleshootingSteps,
+                text = currentFaultCode.troubleshootingSteps,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
         } else {
