@@ -112,7 +112,7 @@ fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
                 // Strict bounds checking before calculating target index
                 val safeInitialPage = if (initialPage < 1 || initialPage > pageCount) 1 else initialPage
                 val targetIndex = safeInitialPage - 1
-
+                
                 // Extra safety validation
                 if (targetIndex in 0 until pageCount) {
                     listState.scrollToItem(targetIndex)
@@ -196,14 +196,14 @@ fun PdfPage(
                         safePageIndex = 0
                     }
                     val page = renderer.openPage(safePageIndex)
-
+                    
                     // Render at high resolution
                     val width = (page.width * density.density * 2).toInt()
                     val height = (page.height * density.density * 2).toInt()
-
+                    
                     val renderedBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
                     renderedBitmap.eraseColor(android.graphics.Color.WHITE)
-
+                    
                     page.render(renderedBitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                     bitmap = renderedBitmap
                     page.close()
@@ -256,7 +256,7 @@ fun ZoomableBox(
                         val event = awaitPointerEvent()
                         val zoom = event.calculateZoom()
                         val pan = event.calculatePan()
-
+                        
                         scale = (scale * zoom).coerceIn(1f, 5f)
                         if (scale > 1f) {
                             val newOffset = offset + pan
