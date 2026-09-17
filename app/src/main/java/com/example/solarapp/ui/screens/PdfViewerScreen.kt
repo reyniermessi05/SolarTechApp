@@ -12,10 +12,22 @@ import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import android.widget.Toast
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -42,6 +54,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
     val context = LocalContext.current
@@ -49,7 +62,8 @@ fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
     var fileDescriptor by remember { mutableStateOf<ParcelFileDescriptor?>(null) }
     var pageCount by remember { mutableIntStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
-    
+    var searchQuery by remember { mutableStateOf("") }
+
     // Use a mutex because PdfRenderer isn't thread safe and we can only open one page at a time
     val renderMutex = remember { Mutex() }
     val listState = rememberLazyListState()
@@ -111,24 +125,54 @@ fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        if (error != null) {
-            Text(text = error!!)
-        } else if (pdfRenderer != null && pageCount > 0) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                state = listState
-            ) {
-                items(pageCount) { index ->
-                    PdfPage(
-                        renderer = pdfRenderer,
-                        pageIndex = index,
-                        renderMutex = renderMutex
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    TextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text(androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.search_in_pdf)) },
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                            unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        ),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
                     )
+                },
+                actions = {
+                    val toastMessage = androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.search_ai_placeholder)
+                    IconButton(onClick = {
+                        Toast.makeText(context, toastMessage, Toast.LENGTH_SHORT).show()
+                    }) {
+                        Icon(imageVector = Icons.Default.Search, contentDescription = "Buscar")
+                    }
                 }
+            )
+        }
+    ) { innerPadding ->
+        Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+            if (error != null) {
+                Text(text = error!!)
+            } else if (pdfRenderer != null && pageCount > 0) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    state = listState
+                ) {
+                    items(pageCount) { index ->
+                        PdfPage(
+                            renderer = pdfRenderer,
+                            pageIndex = index,
+                            renderMutex = renderMutex
+                        )
+                    }
+                }
+            } else {
+                CircularProgressIndicator()
             }
-        } else {
-            CircularProgressIndicator()
         }
     }
 }
