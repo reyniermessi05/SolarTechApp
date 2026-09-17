@@ -95,8 +95,9 @@ fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
     LaunchedEffect(pageCount, initialPage) {
         if (pageCount > 0) {
             try {
-                // Scroll to the targeted page (pages are 0-indexed in array, but visual is 1-indexed)
-                val targetIndex = (initialPage - 1).coerceIn(0, pageCount - 1)
+                // Strict bounds checking before calculating target index
+                val safeInitialPage = if (initialPage - 1 < 0 || initialPage - 1 >= pageCount) 1 else initialPage
+                val targetIndex = safeInitialPage - 1
 
                 // Extra safety validation
                 if (targetIndex in 0 until pageCount) {
@@ -146,6 +147,7 @@ fun PdfPage(
         withContext(Dispatchers.IO) {
             renderMutex.withLock {
                 try {
+                    if (pageIndex !in 0 until renderer.pageCount) return@withLock
                     val page = renderer.openPage(pageIndex)
 
                     // Render at high resolution
