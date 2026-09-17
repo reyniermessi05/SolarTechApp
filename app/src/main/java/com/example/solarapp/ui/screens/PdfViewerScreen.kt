@@ -96,9 +96,9 @@ fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
         if (pageCount > 0) {
             try {
                 // Strict bounds checking before calculating target index
-                val safeInitialPage = if (initialPage - 1 < 0 || initialPage - 1 >= pageCount) 1 else initialPage
+                val safeInitialPage = if (initialPage < 1 || initialPage > pageCount) 1 else initialPage
                 val targetIndex = safeInitialPage - 1
-
+                
                 // Extra safety validation
                 if (targetIndex in 0 until pageCount) {
                     listState.scrollToItem(targetIndex)
