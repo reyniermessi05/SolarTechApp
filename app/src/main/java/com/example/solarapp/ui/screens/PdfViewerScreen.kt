@@ -147,8 +147,11 @@ fun PdfPage(
         withContext(Dispatchers.IO) {
             renderMutex.withLock {
                 try {
-                    if (pageIndex !in 0 until renderer.pageCount) return@withLock
-                    val page = renderer.openPage(pageIndex)
+                    var safePageIndex = pageIndex
+                    if (safePageIndex < 0 || safePageIndex >= renderer.pageCount) {
+                        safePageIndex = 0
+                    }
+                    val page = renderer.openPage(safePageIndex)
 
                     // Render at high resolution
                     val width = (page.width * density.density * 2).toInt()
