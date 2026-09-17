@@ -49,7 +49,7 @@ fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
     var fileDescriptor by remember { mutableStateOf<ParcelFileDescriptor?>(null) }
     var pageCount by remember { mutableIntStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
-    
+
     // Use a mutex because PdfRenderer isn't thread safe and we can only open one page at a time
     val renderMutex = remember { Mutex() }
     val listState = rememberLazyListState()
@@ -96,7 +96,7 @@ fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
         if (pageCount > 0) {
             try {
                 // Strict bounds checking before calculating target index
-                val safeInitialPage = if (initialPage - 1 < 0 || initialPage - 1 >= pageCount) 1 else initialPage
+                val safeInitialPage = if (initialPage < 1 || initialPage > pageCount) 1 else initialPage
                 val targetIndex = safeInitialPage - 1
 
                 // Extra safety validation
@@ -149,14 +149,14 @@ fun PdfPage(
                 try {
                     if (pageIndex !in 0 until renderer.pageCount) return@withLock
                     val page = renderer.openPage(pageIndex)
-                    
+
                     // Render at high resolution
                     val width = (page.width * density.density * 2).toInt()
                     val height = (page.height * density.density * 2).toInt()
-                    
+
                     val renderedBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
                     renderedBitmap.eraseColor(android.graphics.Color.WHITE)
-                    
+
                     page.render(renderedBitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                     bitmap = renderedBitmap
                     page.close()
@@ -209,7 +209,7 @@ fun ZoomableBox(
                         val event = awaitPointerEvent()
                         val zoom = event.calculateZoom()
                         val pan = event.calculatePan()
-                        
+
                         scale = (scale * zoom).coerceIn(1f, 5f)
                         if (scale > 1f) {
                             val newOffset = offset + pan
