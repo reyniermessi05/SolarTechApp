@@ -88,7 +88,7 @@ fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
             try {
                 // Scroll to the targeted page (pages are 0-indexed in array, but visual is 1-indexed)
                 val targetIndex = (initialPage - 1).coerceIn(0, pdfRenderer!!.pageCount - 1)
-                
+
                 // Extra safety validation
                 if (targetIndex in 0 until pdfRenderer!!.pageCount) {
                     listState.scrollToItem(targetIndex)
