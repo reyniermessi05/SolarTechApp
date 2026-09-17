@@ -50,12 +50,13 @@ class FaultDataSeeder @Inject constructor(
                             try {
                                 faultsList.add(
                                     FaultCode(
-                                        equipmentType = record.get(0).trim(),
-                                        faultCode = record.get(1).trim(),
-                                        issueTitle = record.get(2).trim(),
-                                        troubleshootingSteps = record.get(3).replace("\\n", "\n").trim(),
-                                        issueTitleEs = record.get(4).trim(),
-                                        troubleshootingStepsEs = record.get(5).replace("\\n", "\n").trim()
+                                        codigo = record.get(0).trim(),
+                                        tituloEn = record.get(1).trim(),
+                                        tituloEs = record.get(2).trim(),
+                                        pasosEn = record.get(3).replace("\\n", "\n").trim(),
+                                        pasosEs = record.get(4).replace("\\n", "\n").trim(),
+                                        documentoPdf = record.get(5).trim(),
+                                        pagina = record.get(6).trim().toIntOrNull() ?: 1
                                     )
                                 )
                             } catch (e: Exception) {

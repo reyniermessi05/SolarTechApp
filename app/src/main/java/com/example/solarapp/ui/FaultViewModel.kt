@@ -45,15 +45,15 @@ class FaultViewModel @Inject constructor(
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val faultCodes: StateFlow<List<FaultCode>> = combine(_equipmentType, _searchQuery) { type, query ->
-        Pair(type, query)
-    }.flatMapLatest { (type, query) ->
-        faultRepository.searchFaultCodes(type, query)
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
+    val faultCodes: StateFlow<List<FaultCode>> = _searchQuery
+        .flatMapLatest { query ->
+            faultRepository.searchFaultCodes(query)
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
     fun getFaultCodeById(id: Int): kotlinx.coroutines.flow.Flow<FaultCode?> {
         return faultRepository.getFaultCodeById(id)

@@ -49,7 +49,7 @@ fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
     var fileDescriptor by remember { mutableStateOf<ParcelFileDescriptor?>(null) }
     var pageCount by remember { mutableIntStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
-
+    
     // Use a mutex because PdfRenderer isn't thread safe and we can only open one page at a time
     val renderMutex = remember { Mutex() }
     val listState = rememberLazyListState()
@@ -152,14 +152,14 @@ fun PdfPage(
                         safePageIndex = 0
                     }
                     val page = renderer.openPage(safePageIndex)
-
+                    
                     // Render at high resolution
                     val width = (page.width * density.density * 2).toInt()
                     val height = (page.height * density.density * 2).toInt()
-
+                    
                     val renderedBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
                     renderedBitmap.eraseColor(android.graphics.Color.WHITE)
-
+                    
                     page.render(renderedBitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                     bitmap = renderedBitmap
                     page.close()
@@ -212,7 +212,7 @@ fun ZoomableBox(
                         val event = awaitPointerEvent()
                         val zoom = event.calculateZoom()
                         val pan = event.calculatePan()
-
+                        
                         scale = (scale * zoom).coerceIn(1f, 5f)
                         if (scale > 1f) {
                             val newOffset = offset + pan
