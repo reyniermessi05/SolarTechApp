@@ -65,10 +65,10 @@ dependencies {
     
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.7")
-
+    
     // CSV Parser
     implementation("org.apache.commons:commons-csv:1.10.0")
-
+    
     // AppCompat for Locale Delegate
     implementation("androidx.appcompat:appcompat:1.6.1")
 
