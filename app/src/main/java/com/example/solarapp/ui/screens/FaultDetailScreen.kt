@@ -85,10 +85,12 @@ fun FaultDetailScreen(
                         // Link data could be like "manual_hem2.pdf, Pag: 45"
                         val parts = linkData.split(",")
                         val fileName = parts.first().trim()
-                        val pageNumber = if (parts.size > 1) {
-                            parts[1].substringAfter(":").trim().toIntOrNull() ?: 1
-                        } else 1
-                        onNavigateToPdf(fileName, pageNumber)
+                        if (fileName.isNotEmpty()) {
+                            val pageNumber = if (parts.size > 1) {
+                                parts[1].substringAfter(":").trim().toIntOrNull() ?: 1
+                            } else 1
+                            onNavigateToPdf(fileName, pageNumber)
+                        }
                     }
                 )
             } else {

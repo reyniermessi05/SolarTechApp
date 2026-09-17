@@ -24,7 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +47,7 @@ fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
     val context = LocalContext.current
     var pdfRenderer by remember { mutableStateOf<PdfRenderer?>(null) }
     var fileDescriptor by remember { mutableStateOf<ParcelFileDescriptor?>(null) }
+    var pageCount by remember { mutableIntStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
     
     // Use a mutex because PdfRenderer isn't thread safe and we can only open one page at a time
@@ -69,6 +70,7 @@ fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
                 fileDescriptor = fd
                 val renderer = PdfRenderer(fd)
                 pdfRenderer = renderer
+                pageCount = renderer.pageCount
             } else {
                 error = "Could not open file descriptor"
             }
@@ -78,19 +80,26 @@ fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
         }
 
         onDispose {
-            pdfRenderer?.close()
-            fileDescriptor?.close()
+            try {
+                pdfRenderer?.close()
+            } catch (e: Exception) { e.printStackTrace() }
+            try {
+                fileDescriptor?.close()
+            } catch (e: Exception) { e.printStackTrace() }
+            pdfRenderer = null
+            fileDescriptor = null
+            pageCount = 0
         }
     }
 
-    LaunchedEffect(pdfRenderer, initialPage) {
-        if (pdfRenderer != null && pdfRenderer!!.pageCount > 0) {
+    LaunchedEffect(pageCount, initialPage) {
+        if (pageCount > 0) {
             try {
                 // Scroll to the targeted page (pages are 0-indexed in array, but visual is 1-indexed)
-                val targetIndex = (initialPage - 1).coerceIn(0, pdfRenderer!!.pageCount - 1)
+                val targetIndex = (initialPage - 1).coerceIn(0, pageCount - 1)
                 
                 // Extra safety validation
-                if (targetIndex in 0 until pdfRenderer!!.pageCount) {
+                if (targetIndex in 0 until pageCount) {
                     listState.scrollToItem(targetIndex)
                 } else {
                     android.util.Log.e("PdfViewerScreen", "Invalid page target: $targetIndex")
@@ -104,14 +113,14 @@ fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         if (error != null) {
             Text(text = error!!)
-        } else if (pdfRenderer != null) {
+        } else if (pdfRenderer != null && pageCount > 0) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 state = listState
             ) {
-                items(pdfRenderer!!.pageCount) { index ->
+                items(pageCount) { index ->
                     PdfPage(
-                        renderer = pdfRenderer!!,
+                        renderer = pdfRenderer,
                         pageIndex = index,
                         renderMutex = renderMutex
                     )
@@ -125,14 +134,15 @@ fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
 
 @Composable
 fun PdfPage(
-    renderer: PdfRenderer,
+    renderer: PdfRenderer?,
     pageIndex: Int,
     renderMutex: Mutex
 ) {
+    if (renderer == null) return
     val density = LocalDensity.current
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
 
-    LaunchedEffect(pageIndex) {
+    LaunchedEffect(pageIndex, renderer) {
         withContext(Dispatchers.IO) {
             renderMutex.withLock {
                 try {
