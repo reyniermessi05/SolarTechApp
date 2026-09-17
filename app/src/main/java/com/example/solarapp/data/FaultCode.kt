@@ -6,10 +6,11 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "fault_codes")
 data class FaultCode(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val equipmentType: String,
-    val faultCode: String,
-    val issueTitle: String,
-    val troubleshootingSteps: String,
-    val issueTitleEs: String = "",
-    val troubleshootingStepsEs: String = ""
+    val codigo: String,
+    val tituloEn: String,
+    val tituloEs: String,
+    val pasosEn: String,
+    val pasosEs: String,
+    val documentoPdf: String,
+    val pagina: Int
 )

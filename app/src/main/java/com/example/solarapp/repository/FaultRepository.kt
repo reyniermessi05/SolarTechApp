@@ -10,8 +10,8 @@ import javax.inject.Singleton
 class FaultRepository @Inject constructor(
     private val faultDao: FaultDao
 ) {
-    fun searchFaultCodes(equipmentType: String, query: String): Flow<List<FaultCode>> {
-        return faultDao.searchFaultCodes(equipmentType, query)
+    fun searchFaultCodes(query: String): Flow<List<FaultCode>> {
+        return faultDao.searchFaultCodes(query)
     }
 
     fun getFaultCodeById(id: Int): Flow<FaultCode?> {

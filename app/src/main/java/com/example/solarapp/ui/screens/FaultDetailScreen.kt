@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material3.Button
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -62,8 +63,8 @@ fun FaultDetailScreen(
         ) {
             val currentFaultCode = faultCode
             if (currentFaultCode != null) {
-                val title = if (isSpanish && currentFaultCode.issueTitleEs.isNotEmpty()) currentFaultCode.issueTitleEs else currentFaultCode.issueTitle
-                val steps = if (isSpanish && currentFaultCode.troubleshootingStepsEs.isNotEmpty()) currentFaultCode.troubleshootingStepsEs else currentFaultCode.troubleshootingSteps
+                val title = if (isSpanish && currentFaultCode.tituloEs.isNotEmpty()) currentFaultCode.tituloEs else currentFaultCode.tituloEn
+                val steps = if (isSpanish && currentFaultCode.pasosEs.isNotEmpty()) currentFaultCode.pasosEs else currentFaultCode.pasosEn
 
                 Text(
                     text = title,
@@ -78,21 +79,22 @@ fun FaultDetailScreen(
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
 
-                LinkableText(
+                Text(
                     text = steps,
-                    modifier = Modifier.padding(bottom = 16.dp),
-                    onLinkClick = { linkData ->
-                        // Link data could be like "manual_hem2.pdf, Pag: 45"
-                        val parts = linkData.split(",")
-                        val fileName = parts.first().trim()
-                        if (fileName.isNotEmpty()) {
-                            val pageNumber = if (parts.size > 1) {
-                                parts[1].substringAfter(":").trim().toIntOrNull() ?: 1
-                            } else 1
-                            onNavigateToPdf(fileName, pageNumber)
-                        }
-                    }
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(bottom = 16.dp)
                 )
+
+                if (currentFaultCode.documentoPdf.isNotEmpty()) {
+                    Button(
+                        onClick = {
+                            onNavigateToPdf(currentFaultCode.documentoPdf, currentFaultCode.pagina)
+                        },
+                        modifier = Modifier.padding(top = 16.dp)
+                    ) {
+                        Text("Ver Plano/Diagrama (Pág. ${currentFaultCode.pagina})")
+                    }
+                }
             } else {
                 Text(androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.loading))
             }

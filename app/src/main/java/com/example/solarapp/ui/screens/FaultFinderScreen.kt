@@ -87,16 +87,16 @@ fun FaultFinderScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 8.dp)
-                                    .clickable { onNavigateToDetail(fault.id, fault.faultCode) },
+                                    .clickable { onNavigateToDetail(fault.id, fault.codigo) },
                                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                             ) {
                                 Column(
                                     modifier = Modifier.padding(16.dp)
                                 ) {
-                                    val title = if (isSpanish && fault.issueTitleEs.isNotEmpty()) fault.issueTitleEs else fault.issueTitle
-                                    val steps = if (isSpanish && fault.troubleshootingStepsEs.isNotEmpty()) fault.troubleshootingStepsEs else fault.troubleshootingSteps
+                                    val title = if (isSpanish && fault.tituloEs.isNotEmpty()) fault.tituloEs else fault.tituloEn
+                                    val steps = if (isSpanish && fault.pasosEs.isNotEmpty()) fault.pasosEs else fault.pasosEn
                                     Text(
-                                        text = "${fault.faultCode}: $title",
+                                        text = "${fault.codigo}: $title",
                                         style = MaterialTheme.typography.titleMedium,
                                         color = MaterialTheme.colorScheme.primary
                                     )
