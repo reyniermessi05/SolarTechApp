@@ -49,7 +49,7 @@ fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
     var fileDescriptor by remember { mutableStateOf<ParcelFileDescriptor?>(null) }
     var pageCount by remember { mutableIntStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
-
+    
     // Use a mutex because PdfRenderer isn't thread safe and we can only open one page at a time
     val renderMutex = remember { Mutex() }
     val listState = rememberLazyListState()
@@ -97,7 +97,7 @@ fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
             try {
                 // Scroll to the targeted page (pages are 0-indexed in array, but visual is 1-indexed)
                 val targetIndex = (initialPage - 1).coerceIn(0, pageCount - 1)
-
+                
                 // Extra safety validation
                 if (targetIndex in 0 until pageCount) {
                     listState.scrollToItem(targetIndex)
@@ -147,14 +147,14 @@ fun PdfPage(
             renderMutex.withLock {
                 try {
                     val page = renderer.openPage(pageIndex)
-
+                    
                     // Render at high resolution
                     val width = (page.width * density.density * 2).toInt()
                     val height = (page.height * density.density * 2).toInt()
-
+                    
                     val renderedBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
                     renderedBitmap.eraseColor(android.graphics.Color.WHITE)
-
+                    
                     page.render(renderedBitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                     bitmap = renderedBitmap
                     page.close()
@@ -207,7 +207,7 @@ fun ZoomableBox(
                         val event = awaitPointerEvent()
                         val zoom = event.calculateZoom()
                         val pan = event.calculatePan()
-
+                        
                         scale = (scale * zoom).coerceIn(1f, 5f)
                         if (scale > 1f) {
                             val newOffset = offset + pan

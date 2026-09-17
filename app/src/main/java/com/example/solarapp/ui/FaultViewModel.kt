@@ -3,9 +3,11 @@ package com.example.solarapp.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.solarapp.data.FaultCode
+import com.example.solarapp.data.FaultDataSeeder
 import com.example.solarapp.repository.FaultRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -17,8 +19,17 @@ import javax.inject.Inject
 
 @HiltViewModel
 class FaultViewModel @Inject constructor(
-    private val faultRepository: FaultRepository
+    private val faultRepository: FaultRepository,
+    private val seeder: FaultDataSeeder
 ) : ViewModel() {
+
+    val seedState = seeder.seedState
+
+    init {
+        viewModelScope.launch {
+            seeder.seedDatabaseIfNeeded()
+        }
+    }
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()

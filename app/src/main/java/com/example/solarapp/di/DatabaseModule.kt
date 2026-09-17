@@ -27,59 +27,13 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideAppDatabase(
-        @ApplicationContext context: Context,
-        provider: Provider<FaultDao>
+        @ApplicationContext context: Context
     ): AppDatabase {
         return Room.databaseBuilder(
             context,
             AppDatabase::class.java,
             "solar_app_db"
         ).fallbackToDestructiveMigration()
-        .addCallback(object : RoomDatabase.Callback() {
-            override fun onCreate(db: SupportSQLiteDatabase) {
-                super.onCreate(db)
-                CoroutineScope(Dispatchers.IO).launch {
-                    val faultDao = provider.get()
-                    val faultsList = mutableListOf<FaultCode>()
-                    try {
-                        context.assets.open("faults_hem2.csv").use { inputStream ->
-                            InputStreamReader(inputStream).use { reader ->
-                                val records = CSVFormat.EXCEL.builder()
-                                    .setHeader()
-                                    .setSkipHeaderRecord(true)
-                                    .setIgnoreSurroundingSpaces(true)
-                                    .build()
-                                    .parse(reader)
-
-                                for (record in records) {
-                                    try {
-                                        // Make sure we unescape literal "\n" characters to actual newlines
-                                        faultsList.add(
-                                            FaultCode(
-                                                equipmentType = record.get(0).trim(),
-                                                faultCode = record.get(1).trim(),
-                                                issueTitle = record.get(2).trim(),
-                                                troubleshootingSteps = record.get(3).replace("\\n", "\n").trim(),
-                                                issueTitleEs = record.get(4).trim(),
-                                                troubleshootingStepsEs = record.get(5).replace("\\n", "\n").trim()
-                                            )
-                                        )
-                                    } catch (e: Exception) {
-                                        android.util.Log.e("DatabaseModule", "Failed to parse CSV record: $record", e)
-                                    }
-                                }
-                            }
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-
-                    if (faultsList.isNotEmpty()) {
-                        faultDao.insertAll(faultsList)
-                    }
-                }
-            }
-        })
         .build()
     }
 

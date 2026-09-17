@@ -10,6 +10,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,6 +22,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.solarapp.ui.FaultViewModel
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.platform.LocalConfiguration
+import com.example.solarapp.data.SeedState
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.Alignment
 
 @Composable
 fun FaultFinderScreen(
@@ -34,6 +38,7 @@ fun FaultFinderScreen(
 
     val searchQuery by viewModel.searchQuery.collectAsState()
     val faultCodes by viewModel.faultCodes.collectAsState()
+    val seedState by viewModel.seedState.collectAsState()
 
     val configuration = LocalConfiguration.current
     val isSpanish = configuration.locales.get(0)?.language == "es"
@@ -51,34 +56,58 @@ fun FaultFinderScreen(
             singleLine = true
         )
 
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 16.dp)
-        ) {
-            items(faultCodes) { fault ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                        .clickable { onNavigateToDetail(fault.id, fault.faultCode) },
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
+        when (val state = seedState) {
+            is SeedState.Loading -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+            is SeedState.Error -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = state.message,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+            }
+            is SeedState.Success -> {
+                if (faultCodes.isEmpty() && searchQuery.isNotEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(text = "No results found")
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = 16.dp)
                     ) {
-                        val title = if (isSpanish && fault.issueTitleEs.isNotEmpty()) fault.issueTitleEs else fault.issueTitle
-                        val steps = if (isSpanish && fault.troubleshootingStepsEs.isNotEmpty()) fault.troubleshootingStepsEs else fault.troubleshootingSteps
-                        Text(
-                            text = "${fault.faultCode}: $title",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = steps,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
+                        items(faultCodes) { fault ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                                    .clickable { onNavigateToDetail(fault.id, fault.faultCode) },
+                                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp)
+                                ) {
+                                    val title = if (isSpanish && fault.issueTitleEs.isNotEmpty()) fault.issueTitleEs else fault.issueTitle
+                                    val steps = if (isSpanish && fault.troubleshootingStepsEs.isNotEmpty()) fault.troubleshootingStepsEs else fault.troubleshootingSteps
+                                    Text(
+                                        text = "${fault.faultCode}: $title",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = steps,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        modifier = Modifier.padding(top = 8.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
