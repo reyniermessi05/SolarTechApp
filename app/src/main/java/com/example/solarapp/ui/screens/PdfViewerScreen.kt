@@ -84,10 +84,20 @@ fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
     }
 
     LaunchedEffect(pdfRenderer, initialPage) {
-        if (pdfRenderer != null) {
-            // Scroll to the targeted page (pages are 0-indexed in array, but visual is 1-indexed)
-            val targetIndex = (initialPage - 1).coerceIn(0, pdfRenderer!!.pageCount - 1)
-            listState.scrollToItem(targetIndex)
+        if (pdfRenderer != null && pdfRenderer!!.pageCount > 0) {
+            try {
+                // Scroll to the targeted page (pages are 0-indexed in array, but visual is 1-indexed)
+                val targetIndex = (initialPage - 1).coerceIn(0, pdfRenderer!!.pageCount - 1)
+
+                // Extra safety validation
+                if (targetIndex in 0 until pdfRenderer!!.pageCount) {
+                    listState.scrollToItem(targetIndex)
+                } else {
+                    android.util.Log.e("PdfViewerScreen", "Invalid page target: $targetIndex")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("PdfViewerScreen", "Failed to scroll to page: ${e.message}")
+            }
         }
     }
 
