@@ -43,8 +43,8 @@ sealed class Screen(val route: String, val title: String) {
     object FaultDetail : Screen("faultDetail/{faultId}/{faultCode}", "Fault Detail") {
         fun createRoute(faultId: Int, faultCode: String) = "faultDetail/$faultId/${Uri.encode(faultCode)}"
     }
-    object PdfViewer : Screen("pdfViewer/{fileName}", "PDF Viewer") {
-        fun createRoute(fileName: String) = "pdfViewer/${Uri.encode(fileName)}"
+    object PdfViewer : Screen("pdfViewer/{fileName}/{pageNumber}", "PDF Viewer") {
+        fun createRoute(fileName: String, pageNumber: Int) = "pdfViewer/${Uri.encode(fileName)}/$pageNumber"
     }
 }
 
@@ -171,17 +171,21 @@ fun AppNavigation() {
                 val faultId = backStackEntry.arguments?.getInt("faultId") ?: 0
                 FaultDetailScreen(
                     faultId = faultId,
-                    onNavigateToPdf = { fileName ->
-                        navController.navigate(Screen.PdfViewer.createRoute(fileName))
+                    onNavigateToPdf = { fileName, pageNumber ->
+                        navController.navigate(Screen.PdfViewer.createRoute(fileName, pageNumber))
                     }
                 )
             }
             composable(
                 route = Screen.PdfViewer.route,
-                arguments = listOf(navArgument("fileName") { type = NavType.StringType })
+                arguments = listOf(
+                    navArgument("fileName") { type = NavType.StringType },
+                    navArgument("pageNumber") { type = NavType.IntType }
+                )
             ) { backStackEntry ->
                 val fileName = Uri.decode(backStackEntry.arguments?.getString("fileName") ?: "")
-                PdfViewerScreen(fileName = fileName)
+                val pageNumber = backStackEntry.arguments?.getInt("pageNumber") ?: 1
+                PdfViewerScreen(fileName = fileName, initialPage = pageNumber)
             }
         }
     }

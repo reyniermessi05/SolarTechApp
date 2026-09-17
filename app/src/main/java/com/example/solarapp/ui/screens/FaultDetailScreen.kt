@@ -33,7 +33,7 @@ import com.example.solarapp.ui.FaultViewModel
 @Composable
 fun FaultDetailScreen(
     faultId: Int,
-    onNavigateToPdf: (String) -> Unit = {},
+    onNavigateToPdf: (String, Int) -> Unit = { _, _ -> },
     viewModel: FaultViewModel = hiltViewModel()
 ) {
     val faultCode by remember(faultId) { viewModel.getFaultCodeById(faultId) }.collectAsState(initial = null)
@@ -83,8 +83,12 @@ fun FaultDetailScreen(
                     modifier = Modifier.padding(bottom = 16.dp),
                     onLinkClick = { linkData ->
                         // Link data could be like "manual_hem2.pdf, Pag: 45"
-                        val fileName = linkData.split(",").first().trim()
-                        onNavigateToPdf(fileName)
+                        val parts = linkData.split(",")
+                        val fileName = parts.first().trim()
+                        val pageNumber = if (parts.size > 1) {
+                            parts[1].substringAfter(":").trim().toIntOrNull() ?: 1
+                        } else 1
+                        onNavigateToPdf(fileName, pageNumber)
                     }
                 )
             } else {

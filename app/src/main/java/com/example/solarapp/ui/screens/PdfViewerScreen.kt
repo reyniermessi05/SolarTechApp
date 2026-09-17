@@ -5,16 +5,26 @@ import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,26 +34,26 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 
 @Composable
-fun PdfViewerScreen(fileName: String) {
+fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
     val context = LocalContext.current
-    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var pdfRenderer by remember { mutableStateOf<PdfRenderer?>(null) }
+    var fileDescriptor by remember { mutableStateOf<ParcelFileDescriptor?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    val density = LocalDensity.current
 
-    // Zoom and pan state
-    var scale by remember { mutableFloatStateOf(1f) }
-    var offset by remember { mutableStateOf(Offset.Zero) }
+    // Use a mutex because PdfRenderer isn't thread safe and we can only open one page at a time
+    val renderMutex = remember { Mutex() }
+    val listState = rememberLazyListState()
 
     DisposableEffect(fileName) {
-        var fileDescriptor: ParcelFileDescriptor? = null
-        var pdfRenderer: PdfRenderer? = null
-        var currentPage: PdfRenderer.Page? = null
-
         try {
             val file = File(context.cacheDir, fileName)
             if (!file.exists()) {
@@ -54,25 +64,13 @@ fun PdfViewerScreen(fileName: String) {
                 }
             }
 
-            fileDescriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
-            if (fileDescriptor != null) {
-                pdfRenderer = PdfRenderer(fileDescriptor)
-                if (pdfRenderer.pageCount > 0) {
-                    currentPage = pdfRenderer.openPage(0)
-
-                    // Higher resolution for better zoom quality
-                    val width = (currentPage.width * density.density * 2).toInt()
-                    val height = (currentPage.height * density.density * 2).toInt()
-
-                    val renderedBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                    // Fill background with white
-                    renderedBitmap.eraseColor(android.graphics.Color.WHITE)
-
-                    currentPage.render(renderedBitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                    bitmap = renderedBitmap
-                } else {
-                    error = "PDF is empty"
-                }
+            val fd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+            if (fd != null) {
+                fileDescriptor = fd
+                val renderer = PdfRenderer(fd)
+                pdfRenderer = renderer
+            } else {
+                error = "Could not open file descriptor"
             }
         } catch (e: Exception) {
             error = "Could not load PDF: ${e.message}"
@@ -80,43 +78,135 @@ fun PdfViewerScreen(fileName: String) {
         }
 
         onDispose {
-            currentPage?.close()
             pdfRenderer?.close()
             fileDescriptor?.close()
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .pointerInput(Unit) {
-                detectTransformGestures { _, pan, zoom, _ ->
-                    scale = (scale * zoom).coerceIn(1f, 5f)
+    LaunchedEffect(pdfRenderer, initialPage) {
+        if (pdfRenderer != null) {
+            // Scroll to the targeted page (pages are 0-indexed in array, but visual is 1-indexed)
+            val targetIndex = (initialPage - 1).coerceIn(0, pdfRenderer!!.pageCount - 1)
+            listState.scrollToItem(targetIndex)
+        }
+    }
 
-                    // Simple panning constraint (could be improved to constrain fully within bounds)
-                    val newOffset = offset + pan
-                    offset = if (scale > 1f) newOffset else Offset.Zero
-                }
-            },
-        contentAlignment = Alignment.Center
-    ) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         if (error != null) {
             Text(text = error!!)
-        } else if (bitmap != null) {
+        } else if (pdfRenderer != null) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                state = listState
+            ) {
+                items(pdfRenderer!!.pageCount) { index ->
+                    PdfPage(
+                        renderer = pdfRenderer!!,
+                        pageIndex = index,
+                        renderMutex = renderMutex
+                    )
+                }
+            }
+        } else {
+            CircularProgressIndicator()
+        }
+    }
+}
+
+@Composable
+fun PdfPage(
+    renderer: PdfRenderer,
+    pageIndex: Int,
+    renderMutex: Mutex
+) {
+    val density = LocalDensity.current
+    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+
+    LaunchedEffect(pageIndex) {
+        withContext(Dispatchers.IO) {
+            renderMutex.withLock {
+                try {
+                    val page = renderer.openPage(pageIndex)
+
+                    // Render at high resolution
+                    val width = (page.width * density.density * 2).toInt()
+                    val height = (page.height * density.density * 2).toInt()
+
+                    val renderedBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                    renderedBitmap.eraseColor(android.graphics.Color.WHITE)
+
+                    page.render(renderedBitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                    bitmap = renderedBitmap
+                    page.close()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
+
+    if (bitmap != null) {
+        ZoomableBox(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(bitmap!!.width.toFloat() / bitmap!!.height.toFloat())
+        ) {
             Image(
                 bitmap = bitmap!!.asImageBitmap(),
-                contentDescription = "PDF Page",
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer(
-                        scaleX = scale,
-                        scaleY = scale,
-                        translationX = offset.x,
-                        translationY = offset.y
-                    )
+                contentDescription = "PDF Page ${pageIndex + 1}",
+                modifier = Modifier.fillMaxSize()
             )
-        } else {
-            Text(text = "Loading PDF...")
         }
+    } else {
+        // Placeholder while loading
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+    }
+}
+
+@Composable
+fun ZoomableBox(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+
+    Box(
+        modifier = modifier
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    awaitFirstDown()
+                    do {
+                        val event = awaitPointerEvent()
+                        val zoom = event.calculateZoom()
+                        val pan = event.calculatePan()
+
+                        scale = (scale * zoom).coerceIn(1f, 5f)
+                        if (scale > 1f) {
+                            val newOffset = offset + pan
+                            offset = newOffset
+                            // Consume the event so the LazyColumn doesn't intercept it when zoomed in
+                            event.changes.forEach { it.consume() }
+                        } else {
+                            offset = Offset.Zero
+                        }
+                    } while (event.changes.any { it.pressed })
+                }
+            }
+            .graphicsLayer(
+                scaleX = scale,
+                scaleY = scale,
+                translationX = offset.x,
+                translationY = offset.y
+            )
+    ) {
+        content()
     }
 }
