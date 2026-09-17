@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
@@ -33,15 +34,15 @@ class FaultViewModel @Inject constructor(
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val faultCodes: StateFlow<List<FaultCode>> = _searchQuery
-        .flatMapLatest { query ->
-            faultRepository.searchFaultCodes(_equipmentType.value, query)
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+    val faultCodes: StateFlow<List<FaultCode>> = combine(_equipmentType, _searchQuery) { type, query ->
+        Pair(type, query)
+    }.flatMapLatest { (type, query) ->
+        faultRepository.searchFaultCodes(type, query)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
 
     fun getFaultCodeById(id: Int): kotlinx.coroutines.flow.Flow<FaultCode?> {
         return faultRepository.getFaultCodeById(id)

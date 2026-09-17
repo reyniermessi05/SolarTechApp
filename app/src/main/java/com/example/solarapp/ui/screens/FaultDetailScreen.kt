@@ -81,7 +81,9 @@ fun FaultDetailScreen(
                 LinkableText(
                     text = steps,
                     modifier = Modifier.padding(bottom = 16.dp),
-                    onLinkClick = { fileName ->
+                    onLinkClick = { linkData ->
+                        // Link data could be like "manual_hem2.pdf, Pag: 45"
+                        val fileName = linkData.split(",").first().trim()
                         onNavigateToPdf(fileName)
                     }
                 )
