@@ -105,15 +105,15 @@ fun LinkableText(
     onLinkClick: (String) -> Unit = {}
 ) {
     val linkRegex = "\\[Enlace: (.*?)\\]".toRegex()
-
+    
     val matches = linkRegex.findAll(text).toList()
-
+    
     val annotatedString = buildAnnotatedString {
         var lastIndex = 0
         for (match in matches) {
             val linkText = match.groupValues[1]
             append(text.substring(lastIndex, match.range.first))
-
+            
             pushStringAnnotation(tag = "LINK", annotation = linkText)
             withStyle(
                 style = SpanStyle(
