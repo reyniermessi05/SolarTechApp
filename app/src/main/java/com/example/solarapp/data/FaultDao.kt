@@ -16,4 +16,7 @@ interface FaultDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(faultCodes: List<FaultCode>)
+
+    @Query("SELECT COUNT(*) FROM fault_codes")
+    suspend fun getFaultCount(): Int
 }
