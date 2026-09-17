@@ -17,6 +17,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import javax.inject.Provider
 import javax.inject.Singleton
+import org.apache.commons.csv.CSVFormat
+import java.io.InputStreamReader
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -40,26 +42,24 @@ object DatabaseModule {
                     val faultDao = provider.get()
                     val faultsList = mutableListOf<FaultCode>()
                     try {
-                        context.assets.open("faults_hem2.csv").bufferedReader().useLines { lines ->
-                            // Skip header
-                            val iterator = lines.iterator()
-                            if (iterator.hasNext()) iterator.next()
+                        context.assets.open("faults_hem2.csv").use { inputStream ->
+                            InputStreamReader(inputStream).use { reader ->
+                                val records = CSVFormat.DEFAULT.builder()
+                                    .setHeader()
+                                    .setSkipHeaderRecord(true)
+                                    .build()
+                                    .parse(reader)
 
-                            while (iterator.hasNext()) {
-                                val line = iterator.next()
-                                // Simple CSV parsing (handling quotes)
-                                val tokens = line.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)".toRegex())
-                                    .map { it.removePrefix("\"").removeSuffix("\"").replace("\\n", "\n") }
-
-                                if (tokens.size >= 6) {
+                                for (record in records) {
+                                    // Make sure we unescape literal "\n" characters to actual newlines
                                     faultsList.add(
                                         FaultCode(
-                                            equipmentType = tokens[0],
-                                            faultCode = tokens[1],
-                                            issueTitle = tokens[2],
-                                            troubleshootingSteps = tokens[3],
-                                            issueTitleEs = tokens[4],
-                                            troubleshootingStepsEs = tokens[5]
+                                            equipmentType = record.get(0).trim(),
+                                            faultCode = record.get(1).trim(),
+                                            issueTitle = record.get(2).trim(),
+                                            troubleshootingSteps = record.get(3).replace("\\n", "\n").trim(),
+                                            issueTitleEs = record.get(4).trim(),
+                                            troubleshootingStepsEs = record.get(5).replace("\\n", "\n").trim()
                                         )
                                     )
                                 }
@@ -68,6 +68,7 @@ object DatabaseModule {
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
+
                     if (faultsList.isNotEmpty()) {
                         faultDao.insertAll(faultsList)
                     }
