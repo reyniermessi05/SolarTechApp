@@ -84,7 +84,7 @@ fun FaultFinderScreen(
                 onClick = {
                     try {
                         when (model) {
-                            "HEM Gen. 2" -> onNavigateToPdf("diagrama_hem2.pdf", 0)
+                            "HEM Gen. 2" -> onNavigateToPdf("manual_hem2.pdf", 0)
                             // "HEM Gen. 3" -> onNavigateToPdf("diagrama_hem3.pdf", 0)
                             // "DCDC" -> onNavigateToPdf("diagrama_dcdc.pdf", 0)
                             else -> android.widget.Toast.makeText(context, "No schematics for $model yet", android.widget.Toast.LENGTH_SHORT).show()
