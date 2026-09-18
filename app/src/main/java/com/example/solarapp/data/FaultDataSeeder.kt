@@ -37,32 +37,48 @@ class FaultDataSeeder @Inject constructor(
                 }
 
                 val faultsList = mutableListOf<FaultCode>()
-                context.assets.open("faults_hem2.csv").use { inputStream ->
-                    InputStreamReader(inputStream).use { reader ->
-                        val records = CSVFormat.EXCEL.builder()
-                            .setHeader()
-                            .setSkipHeaderRecord(true)
-                            .setIgnoreSurroundingSpaces(true)
-                            .build()
-                            .parse(reader)
 
-                        for (record in records) {
-                            try {
-                                faultsList.add(
-                                    FaultCode(
-                                        codigo = record.get(0).trim(),
-                                        tituloEn = record.get(1).trim(),
-                                        tituloEs = record.get(2).trim(),
-                                        pasosEn = record.get(3).replace("\\n", "\n").trim(),
-                                        pasosEs = record.get(4).replace("\\n", "\n").trim(),
-                                        documentoPdf = record.get(5).trim(),
-                                        pagina = record.get(6).trim().toIntOrNull() ?: 1
-                                    )
-                                )
-                            } catch (e: Exception) {
-                                Log.e("FaultDataSeeder", "Failed to parse CSV record: $record", e)
+                val filesToParse = listOf(
+                    Pair("faults_hem2.csv", "HEM Gen. 2"),
+                    Pair("faults_hem3.csv", "HEM Gen. 3"),
+                    Pair("faults_dcdc3.csv", "DC/DC Converter Gen. 3")
+                )
+
+                for ((fileName, equipmentType) in filesToParse) {
+                    try {
+                        context.assets.open(fileName).use { inputStream ->
+                            InputStreamReader(inputStream).use { reader ->
+                                val records = CSVFormat.EXCEL.builder()
+                                    .setHeader()
+                                    .setSkipHeaderRecord(true)
+                                    .setIgnoreSurroundingSpaces(true)
+                                    .build()
+                                    .parse(reader)
+
+                                for (record in records) {
+                                    try {
+                                        faultsList.add(
+                                            FaultCode(
+                                                equipmentType = equipmentType,
+                                                codigo = record.get(0).trim(),
+                                                tituloEn = record.get(1).trim(),
+                                                tituloEs = record.get(2).trim(),
+                                                pasosEn = record.get(3).replace("\\n", "\n").trim(),
+                                                pasosEs = record.get(4).replace("\\n", "\n").trim(),
+                                                documentoPdf = record.get(5).trim(),
+                                                pagina = record.get(6).trim().toIntOrNull() ?: 1
+                                            )
+                                        )
+                                    } catch (e: Exception) {
+                                        Log.e("FaultDataSeeder", "Failed to parse CSV record in $fileName: $record", e)
+                                    }
+                                }
                             }
                         }
+                    } catch (e: java.io.FileNotFoundException) {
+                        Log.w("FaultDataSeeder", "File $fileName not found, skipping $equipmentType.")
+                    } catch (e: Exception) {
+                        Log.e("FaultDataSeeder", "Error parsing $fileName", e)
                     }
                 }
 
@@ -70,7 +86,7 @@ class FaultDataSeeder @Inject constructor(
                     faultDao.insertAll(faultsList)
                     _seedState.value = SeedState.Success
                 } else {
-                    _seedState.value = SeedState.Error("CSV parsed successfully but no valid records were found.")
+                    _seedState.value = SeedState.Error("No valid records were found in any CSV file.")
                 }
             } catch (e: Exception) {
                 Log.e("FaultDataSeeder", "Critical error seeding database", e)
