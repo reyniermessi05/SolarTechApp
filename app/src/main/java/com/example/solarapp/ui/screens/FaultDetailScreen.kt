@@ -112,3 +112,47 @@ fun FaultDetailScreen(
         }
     }
 }
+
+@Composable
+fun LinkableText(
+    text: String,
+    modifier: Modifier = Modifier,
+    onLinkClick: (String) -> Unit = {}
+) {
+    val linkRegex = "\\[Enlace: (.*?)\\]".toRegex()
+    
+    val matches = linkRegex.findAll(text).toList()
+    
+    val annotatedString = buildAnnotatedString {
+        var lastIndex = 0
+        for (match in matches) {
+            val linkText = match.groupValues[1]
+            append(text.substring(lastIndex, match.range.first))
+            
+            pushStringAnnotation(tag = "LINK", annotation = linkText)
+            withStyle(
+                style = SpanStyle(
+                    color = MaterialTheme.colorScheme.primary,
+                    textDecoration = TextDecoration.Underline
+                )
+            ) {
+                append(linkText)
+            }
+            pop()
+            lastIndex = match.range.last + 1
+        }
+        append(text.substring(lastIndex))
+    }
+
+    ClickableText(
+        text = annotatedString,
+        modifier = modifier,
+        style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+        onClick = { offset ->
+            annotatedString.getStringAnnotations(tag = "LINK", start = offset, end = offset)
+                .firstOrNull()?.let { annotation ->
+                    onLinkClick(annotation.item)
+                }
+        }
+    )
+}

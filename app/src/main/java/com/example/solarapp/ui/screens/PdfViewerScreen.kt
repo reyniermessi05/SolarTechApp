@@ -53,7 +53,7 @@ fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
     var fileDescriptor by remember { mutableStateOf<ParcelFileDescriptor?>(null) }
     var pageCount by remember { mutableIntStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
-
+    
     // Use a mutex because PdfRenderer isn't thread safe and we can only open one page at a time
     val renderMutex = remember { Mutex() }
     val listState = rememberLazyListState()
