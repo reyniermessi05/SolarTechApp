@@ -5,8 +5,8 @@
     <string name="search_fault_codes">Buscar Códigos de Falla...</string>
     <string name="troubleshooting_steps">Pasos de Solución</string>
     <string name="loading">Cargando...</string>
-    <string name="view_diagram">Ver Plano/Diagrama (Pág. %1$d)</string>
+    <string name="button_details">Detalles</string>
     <string name="search_in_pdf">Buscar en PDF...</string>
     <string name="search_ai_placeholder">Búsqueda avanzada requiere indexación AI. Próximamente.</string>
-    <string name="view_manual">Ver Manual General</string>
+    <string name="button_schematic">Planos</string>
 </resources>

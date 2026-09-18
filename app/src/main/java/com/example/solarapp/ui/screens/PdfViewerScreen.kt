@@ -35,11 +35,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.example.solarapp.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -63,7 +65,7 @@ fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
     var pageCount by remember { mutableIntStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
     var searchQuery by remember { mutableStateOf("") }
-
+    
     // Use a mutex because PdfRenderer isn't thread safe and we can only open one page at a time
     val renderMutex = remember { Mutex() }
     val listState = rememberLazyListState()
@@ -132,7 +134,7 @@ fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
                     TextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
-                        placeholder = { Text(androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.search_in_pdf)) },
+                        placeholder = { Text(stringResource(R.string.search_in_pdf)) },
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = MaterialTheme.colorScheme.surface,
                             unfocusedContainerColor = MaterialTheme.colorScheme.surface,
@@ -144,7 +146,7 @@ fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
                     )
                 },
                 actions = {
-                    val toastMessage = androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.search_ai_placeholder)
+                    val toastMessage = stringResource(R.string.search_ai_placeholder)
                     IconButton(onClick = {
                         Toast.makeText(context, toastMessage, Toast.LENGTH_SHORT).show()
                     }) {

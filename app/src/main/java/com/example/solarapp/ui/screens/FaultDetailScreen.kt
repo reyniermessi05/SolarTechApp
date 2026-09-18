@@ -30,6 +30,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.solarapp.ui.FaultViewModel
+import com.example.solarapp.R
+import androidx.compose.ui.res.stringResource
 
 @Composable
 fun FaultDetailScreen(
@@ -74,7 +76,7 @@ fun FaultDetailScreen(
                 )
 
                 Text(
-                    text = androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.troubleshooting_steps),
+                    text = stringResource(R.string.troubleshooting_steps),
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
@@ -92,20 +94,20 @@ fun FaultDetailScreen(
                         },
                         modifier = Modifier.padding(top = 16.dp)
                     ) {
-                        Text(androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.view_diagram, currentFaultCode.pagina))
+                        Text(stringResource(R.string.button_details))
                     }
-
+                    
                     Button(
                         onClick = {
-                            onNavigateToPdf("manual_hem2.pdf", 1)
+                            onNavigateToPdf("diagrama_hem2.pdf", 1)
                         },
                         modifier = Modifier.padding(top = 8.dp)
                     ) {
-                        Text(androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.view_manual))
+                        Text(stringResource(R.string.button_schematic))
                     }
                 }
             } else {
-                Text(androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.loading))
+                Text(stringResource(R.string.loading))
             }
         }
     }
