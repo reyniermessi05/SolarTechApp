@@ -96,7 +96,7 @@ fun FaultDetailScreen(
                     ) {
                         Text(stringResource(R.string.button_details))
                     }
-
+                    
                     Button(
                         onClick = {
                             onNavigateToPdf("diagrama_hem2.pdf", 1)
