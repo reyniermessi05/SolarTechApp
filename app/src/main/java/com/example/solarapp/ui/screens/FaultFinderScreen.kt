@@ -1,4 +1,9 @@
 package com.example.solarapp.ui.screens
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.layout.width
 
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.foundation.layout.Column
@@ -31,6 +36,7 @@ import androidx.compose.ui.Alignment
 fun FaultFinderScreen(
     model: String,
     onNavigateToDetail: (Int, String) -> Unit = { _, _ -> },
+    onNavigateToPdf: (String, Int) -> Unit = { _, _ -> },
     viewModel: FaultViewModel = hiltViewModel()
 ) {
     LaunchedEffect(model) {
@@ -43,29 +49,59 @@ fun FaultFinderScreen(
 
     val configuration = LocalConfiguration.current
     val isSpanish = configuration.locales.get(0)?.language == "es"
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { viewModel.onSearchQueryChange(it) },
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            label = { Text(androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.search_fault_codes)) },
-            singleLine = true,
-            trailingIcon = {
-                if (searchQuery.isNotEmpty()) {
-                    androidx.compose.material3.IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
-                        androidx.compose.material3.Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Default.Clear,
-                            contentDescription = "Clear search"
-                        )
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { viewModel.onSearchQueryChange(it) },
+                modifier = Modifier.weight(1f),
+                label = { Text(androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.search_fault_codes)) },
+                singleLine = true,
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        androidx.compose.material3.IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
+                            androidx.compose.material3.Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.Clear,
+                                contentDescription = "Clear search"
+                            )
+                        }
                     }
                 }
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            androidx.compose.material3.IconButton(
+                onClick = {
+                    try {
+                        when (model) {
+                            "HEM Gen. 2" -> onNavigateToPdf("diagrama_hem2.pdf", 0)
+                            // "HEM Gen. 3" -> onNavigateToPdf("diagrama_hem3.pdf", 0)
+                            // "DCDC" -> onNavigateToPdf("diagrama_dcdc.pdf", 0)
+                            else -> android.widget.Toast.makeText(context, "No schematics for $model yet", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("FaultFinderScreen", "Error navigating to PDF", e)
+                        android.widget.Toast.makeText(context, "Error opening PDF", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            ) {
+                androidx.compose.material3.Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.Map,
+                    contentDescription = "Planos",
+                    tint = MaterialTheme.colorScheme.primary
+                )
             }
-        )
+        }
 
         when (val state = seedState) {
             is SeedState.Loading -> {

@@ -158,6 +158,9 @@ fun AppNavigation() {
                     model = model,
                     onNavigateToDetail = { faultId, faultCode ->
                         navController.navigate(Screen.FaultDetail.createRoute(faultId, faultCode))
+                    },
+                    onNavigateToPdf = { fileName, pageNumber ->
+                        navController.navigate(Screen.PdfViewer.createRoute(fileName, pageNumber))
                     }
                 )
             }
