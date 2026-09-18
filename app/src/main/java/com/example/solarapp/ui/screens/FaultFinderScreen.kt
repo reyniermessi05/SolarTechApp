@@ -1,5 +1,6 @@
 package com.example.solarapp.ui.screens
 
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -53,7 +54,17 @@ fun FaultFinderScreen(
             onValueChange = { viewModel.onSearchQueryChange(it) },
             modifier = Modifier.fillMaxWidth(),
             label = { Text(androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.search_fault_codes)) },
-            singleLine = true
+            singleLine = true,
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    androidx.compose.material3.IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
+                        androidx.compose.material3.Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.Clear,
+                            contentDescription = "Clear search"
+                        )
+                    }
+                }
+            }
         )
 
         when (val state = seedState) {
