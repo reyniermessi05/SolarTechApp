@@ -58,36 +58,48 @@ fun PdfViewerScreen(fileName: String, initialPage: Int = 1) {
     val renderMutex = remember { Mutex() }
     val listState = rememberLazyListState()
 
-    DisposableEffect(fileName) {
-        try {
-            val file = File(context.cacheDir, fileName)
-            if (!file.exists()) {
-                context.assets.open(fileName).use { inputStream ->
-                    FileOutputStream(file).use { outputStream ->
-                        inputStream.copyTo(outputStream)
+    LaunchedEffect(fileName) {
+        withContext(Dispatchers.IO) {
+            try {
+                val file = File(context.cacheDir, fileName)
+                if (!file.exists()) {
+                    context.assets.open(fileName).use { inputStream ->
+                        FileOutputStream(file).use { outputStream ->
+                            inputStream.copyTo(outputStream)
+                        }
                     }
                 }
-            }
 
-            val fd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
-            if (fd != null) {
-                fileDescriptor = fd
-                val renderer = PdfRenderer(fd)
-                pdfRenderer = renderer
-                pageCount = renderer.pageCount
-            } else {
-                error = "Could not open file descriptor"
+                val fd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+                if (fd != null) {
+                    withContext(Dispatchers.Main) {
+                        fileDescriptor = fd
+                        val renderer = PdfRenderer(fd)
+                        pdfRenderer = renderer
+                        pageCount = renderer.pageCount
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        error = "Could not open file descriptor"
+                    }
+                }
+            } catch (e: java.io.FileNotFoundException) {
+                withContext(Dispatchers.Main) {
+                    val errorMsg = "Archivo no encontrado: $fileName"
+                    error = errorMsg
+                    Toast.makeText(context, errorMsg, Toast.LENGTH_LONG).show()
+                    e.printStackTrace()
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    error = "Could not load PDF: ${e.message}"
+                    e.printStackTrace()
+                }
             }
-        } catch (e: java.io.FileNotFoundException) {
-            val errorMsg = "Archivo no encontrado: $fileName"
-            error = errorMsg
-            Toast.makeText(context, errorMsg, Toast.LENGTH_LONG).show()
-            e.printStackTrace()
-        } catch (e: Exception) {
-            error = "Could not load PDF: ${e.message}"
-            e.printStackTrace()
         }
+    }
 
+    DisposableEffect(fileName) {
         onDispose {
             try {
                 pdfRenderer?.close()

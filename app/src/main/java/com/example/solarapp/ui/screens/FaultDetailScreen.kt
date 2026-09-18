@@ -96,15 +96,6 @@ fun FaultDetailScreen(
                     ) {
                         Text(stringResource(R.string.button_details))
                     }
-
-                    Button(
-                        onClick = {
-                            onNavigateToPdf("diagrama_hem2.pdf", 1)
-                        },
-                        modifier = Modifier.padding(top = 8.dp)
-                    ) {
-                        Text(stringResource(R.string.button_schematic))
-                    }
                 }
             } else {
                 Text(stringResource(R.string.loading))
