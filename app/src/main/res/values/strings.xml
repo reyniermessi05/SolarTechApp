@@ -5,8 +5,8 @@
     <string name="search_fault_codes">Search Fault Codes...</string>
     <string name="troubleshooting_steps">Troubleshooting Steps</string>
     <string name="loading">Loading...</string>
-    <string name="view_diagram">View Diagram/Manual (Page %1$d)</string>
+    <string name="button_details">Details</string>
     <string name="search_in_pdf">Search in PDF...</string>
     <string name="search_ai_placeholder">Advanced search requires AI indexing. Coming soon.</string>
-    <string name="view_manual">View General Manual</string>
+    <string name="button_schematic">Schematic</string>
 </resources>
