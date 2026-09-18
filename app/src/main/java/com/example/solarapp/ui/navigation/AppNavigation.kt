@@ -44,7 +44,7 @@ sealed class Screen(val route: String, val title: String) {
         fun createRoute(faultId: Int, faultCode: String) = "faultDetail/$faultId/${Uri.encode(faultCode)}"
     }
     object PdfViewer : Screen("pdfViewer/{fileName}/{pageNumber}", "PDF Viewer") {
-        fun createRoute(fileName: String, pageNumber: Int) = "pdfViewer/${Uri.encode(fileName)}/$pageNumber"
+        fun createRoute(fileName: String, pageNumber: Int) = "pdfViewer/$fileName/$pageNumber"
     }
 }
 
