@@ -19,4 +19,7 @@ interface FaultDao {
 
     @Query("SELECT COUNT(*) FROM fault_codes")
     suspend fun getFaultCount(): Int
+
+    @Query("SELECT COUNT(*) FROM fault_codes WHERE equipmentType = :equipmentType")
+    suspend fun getFaultCountByEquipment(equipmentType: String): Int
 }

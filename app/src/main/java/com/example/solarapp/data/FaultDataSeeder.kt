@@ -30,12 +30,6 @@ class FaultDataSeeder @Inject constructor(
     suspend fun seedDatabaseIfNeeded() {
         withContext(Dispatchers.IO) {
             try {
-                val count = faultDao.getFaultCount()
-                if (count > 0) {
-                    _seedState.value = SeedState.Success
-                    return@withContext
-                }
-
                 val faultsList = mutableListOf<FaultCode>()
                 
                 val filesToParse = listOf(
@@ -46,6 +40,11 @@ class FaultDataSeeder @Inject constructor(
 
                 for ((fileName, equipmentType) in filesToParse) {
                     try {
+                        val count = faultDao.getFaultCountByEquipment(equipmentType)
+                        if (count > 0) {
+                            continue
+                        }
+
                         context.assets.open(fileName).use { inputStream ->
                             InputStreamReader(inputStream).use { reader ->
                                 val records = CSVFormat.EXCEL.builder()
@@ -86,7 +85,14 @@ class FaultDataSeeder @Inject constructor(
                     faultDao.insertAll(faultsList)
                     _seedState.value = SeedState.Success
                 } else {
-                    _seedState.value = SeedState.Error("No valid records were found in any CSV file.")
+                    // If faultsList is empty, it means all files were already seeded
+                    // or there are no valid records. If total count is > 0, it is success.
+                    val totalCount = faultDao.getFaultCount()
+                    if (totalCount > 0) {
+                        _seedState.value = SeedState.Success
+                    } else {
+                        _seedState.value = SeedState.Error("No valid records were found in any CSV file.")
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("FaultDataSeeder", "Critical error seeding database", e)
