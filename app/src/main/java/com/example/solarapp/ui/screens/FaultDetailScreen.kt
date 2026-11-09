@@ -90,7 +90,15 @@ fun FaultDetailScreen(
                 if (currentFaultCode.documentoPdf.isNotEmpty()) {
                     Button(
                         onClick = {
-                            onNavigateToPdf(currentFaultCode.documentoPdf, currentFaultCode.pagina)
+                            val prefix = when (currentFaultCode.equipmentType) {
+                                "HEM Gen. 2" -> "manual_hem2_"
+                                "HEM Gen. 3" -> "manual_hem3_"
+                                "DC/DC Converter Gen. 3" -> "manual_dcdc3_"
+                                else -> "manual_"
+                            }
+                            val suffix = if (isSpanish) "es.pdf" else "en.pdf"
+                            val localizedPdf = prefix + suffix
+                            onNavigateToPdf(localizedPdf, currentFaultCode.pagina)
                         },
                         modifier = Modifier.padding(top = 16.dp)
                     ) {
