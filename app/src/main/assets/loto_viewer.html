@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>LOTO 3D Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #121212;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        #viewer-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+        #hud-overlay {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            right: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+            color: rgba(255, 255, 255, 0.72);
+            font-size: 12px;
+        }
+        .hud-pill {
+            background: rgba(30, 30, 30, 0.78);
+            border: 1px solid rgba(144, 202, 249, 0.25);
+            border-radius: 999px;
+            padding: 6px 12px;
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body>
+    <div id="viewer-container">
+        <div id="hud-overlay">
+            <span class="hud-pill" id="model-label">Model: Placeholder</span>
+            <span class="hud-pill">1-finger: Rotate &bull; Pinch: Zoom</span>
+        </div>
+    </div>
+
+    <!-- Local offline Three.js scripts served via WebViewAssetLoader -->
+    <script src="js/three.min.js"></script>
+    <script src="js/OrbitControls.js"></script>
+    <script src="js/GLTFLoader.js"></script>
+
+    <script>
+        (function () {
+            const container = document.getElementById('viewer-container');
+            const modelLabel = document.getElementById('model-label');
+
+            // 1. Scene & Renderer
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x121212);
+
+            const camera = new THREE.PerspectiveCamera(
+                45,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                100
+            );
+            camera.position.set(2.8, 2.2, 3.2);
+
+            const renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                powerPreference: 'high-performance'
+            });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.1;
+            container.appendChild(renderer.domElement);
+
+            // 2. OrbitControls (full 360° touch rotation, pinch-to-zoom, smooth damping)
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.06;
+            controls.enableRotate = true;
+            controls.rotateSpeed = 0.85;
+            controls.enableZoom = true;
+            controls.zoomSpeed = 1.0;
+            controls.enablePan = true;
+            controls.minDistance = 1.5;
+            controls.maxDistance = 15;
+            controls.touches = {
+                ONE: THREE.TOUCH.ROTATE,
+                TWO: THREE.TOUCH.DOLLY_PAN
+            };
+
+            // 3. Subtle 3-point + hemisphere lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
+            scene.add(ambientLight);
+
+            const hemiLight = new THREE.HemisphereLight(0x90caf9, 0x1e1e1e, 0.6);
+            hemiLight.position.set(0, 6, 0);
+            scene.add(hemiLight);
+
+            const keyLight = new THREE.DirectionalLight(0xffffff, 0.9);
+            keyLight.position.set(4, 6, 5);
+            scene.add(keyLight);
+
+            const fillLight = new THREE.DirectionalLight(0x81d4fa, 0.4);
+            fillLight.position.set(-4, -2, -4);
+            scene.add(fillLight);
+
+            // Subtle reference grid on the floor for spatial orientation
+            const gridHelper = new THREE.GridHelper(8, 16, 0x37474f, 0x22282d);
+            gridHelper.position.y = -1.1;
+            scene.add(gridHelper);
+
+            // Group holding the currently displayed equipment model
+            const equipmentGroup = new THREE.Group();
+            scene.add(equipmentGroup);
+
+            // Helper: build the placeholder cube with distinct face shading and crisp edges
+            function createPlaceholderCube() {
+                const group = new THREE.Group();
+                const geometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+
+                // Distinct face colors so 360° rotation is clearly visible
+                const faceMaterials = [
+                    new THREE.MeshStandardMaterial({ color: 0x1e88e5, roughness: 0.45, metalness: 0.15 }), // +X
+                    new THREE.MeshStandardMaterial({ color: 0x1565c0, roughness: 0.45, metalness: 0.15 }), // -X
+                    new THREE.MeshStandardMaterial({ color: 0x90caf9, roughness: 0.40, metalness: 0.10 }), // +Y (top)
+                    new THREE.MeshStandardMaterial({ color: 0x0d47a1, roughness: 0.55, metalness: 0.20 }), // -Y (bottom)
+                    new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.45, metalness: 0.15 }), // +Z (front)
+                    new THREE.MeshStandardMaterial({ color: 0x37474f, roughness: 0.50, metalness: 0.20 })  // -Z (back)
+                ];
+
+                const cubeMesh = new THREE.Mesh(geometry, faceMaterials);
+                group.add(cubeMesh);
+
+                const edgesGeometry = new THREE.EdgesGeometry(geometry);
+                const edgesMaterial = new THREE.LineBasicMaterial({
+                    color: 0xe3f2fd,
+                    transparent: true,
+                    opacity: 0.85
+                });
+                const wireframe = new THREE.LineSegments(edgesGeometry, edgesMaterial);
+                group.add(wireframe);
+
+                return group;
+            }
+
+            function clearEquipmentGroup() {
+                while (equipmentGroup.children.length > 0) {
+                    const child = equipmentGroup.children[0];
+                    equipmentGroup.remove(child);
+                }
+            }
+
+            /**
+             * Loads the 3D model for the selected equipment.
+             * Currently displays the placeholder cube. Once .glb files are placed in
+             * app/src/main/assets/, uncomment the GLTFLoader block below.
+             *
+             * @param {string} fileName - e.g., "model_hem2.glb", "model_hem3.glb", "model_dcdc3.glb"
+             */
+            window.loadEquipmentModel = function (fileName) {
+                clearEquipmentGroup();
+
+                const targetName = fileName || 'placeholder';
+                modelLabel.textContent = 'Model: ' + targetName + ' (Placeholder)';
+
+                // --- Placeholder Cube (active until .glb assets are added) ---
+                const placeholder = createPlaceholderCube();
+                equipmentGroup.add(placeholder);
+
+                /*
+                // --- Future GLTFLoader block for .glb files in app/src/main/assets/ ---
+                // Served safely via WebViewAssetLoader at https://appassets.androidplatform.net/assets/
+                const loader = new THREE.GLTFLoader();
+                loader.load(
+                    targetName, // relative to https://appassets.androidplatform.net/assets/loto_viewer.html
+                    function (gltf) {
+                        clearEquipmentGroup();
+                        const model = gltf.scene;
+
+                        // Auto-center and normalize scale to fit viewport
+                        const box = new THREE.Box3().setFromObject(model);
+                        const size = box.getSize(new THREE.Vector3());
+                        const center = box.getCenter(new THREE.Vector3());
+                        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+                        const scale = 2.0 / maxDim;
+                        model.scale.setScalar(scale);
+                        model.position.sub(center.multiplyScalar(scale));
+
+                        equipmentGroup.add(model);
+                        modelLabel.textContent = 'Model: ' + targetName;
+                    },
+                    undefined,
+                    function (error) {
+                        console.error('Error loading GLB model:', error);
+                        // Fallback to placeholder cube if .glb is missing
+                        clearEquipmentGroup();
+                        equipmentGroup.add(createPlaceholderCube());
+                    }
+                );
+                */
+            };
+
+            // Initialize with query param (?model=...) if present
+            const params = new URLSearchParams(window.location.search);
+            const initialModel = params.get('model') || 'placeholder';
+            window.loadEquipmentModel(initialModel);
+
+            // Handle window/orientation resize
+            window.addEventListener('resize', function () {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // Render loop
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            animate();
+        })();
+    </script>
+</body>
+</html>
