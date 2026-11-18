@@ -36,9 +36,9 @@ sealed class Screen(val route: String, val title: String) {
     object Home : Screen("home", "Solar Field Tool")
     object Troubleshooting : Screen("troubleshooting", "Troubleshooting")
     object Loto : Screen("loto", "LOTO")
-    object Loto3DViewer : Screen("loto3dViewer/{equipmentName}/{modelFileName}", "LOTO 3D") {
+    object Loto3DViewer : Screen("loto3d/{equipmentName}/{modelFileName}", "LOTO 3D") {
         fun createRoute(equipmentName: String, modelFileName: String) =
-            "loto3dViewer/${Uri.encode(equipmentName)}/${Uri.encode(modelFileName)}"
+            "loto3d/${Uri.encode(equipmentName)}/${Uri.encode(modelFileName)}"
     }
     object Jha : Screen("jha", "JHA")
     object Plants : Screen("plants", "Plants")
@@ -80,6 +80,10 @@ fun AppNavigation() {
         currentRoute?.startsWith("faultDetail/") == true -> {
             val faultCode = Uri.decode(navBackStackEntry?.arguments?.getString("faultCode") ?: "")
             faultCode
+        }
+        currentRoute?.startsWith("loto3d/") == true -> {
+            val equipmentName = Uri.decode(navBackStackEntry?.arguments?.getString("equipmentName") ?: "")
+            "$equipmentName - LOTO 3D"
         }
         currentRoute?.startsWith("pdfViewer/") == true -> {
             val fileName = Uri.decode(navBackStackEntry?.arguments?.getString("fileName") ?: "")
@@ -150,24 +154,8 @@ fun AppNavigation() {
             composable(Screen.Loto.route) {
                 LotoMenuScreen(
                     onEquipmentSelected = { equipmentName, modelFileName ->
-                        navController.navigate(
-                            Screen.Loto3DViewer.createRoute(equipmentName, modelFileName)
-                        )
+                        navController.navigate(Screen.Loto3DViewer.createRoute(equipmentName, modelFileName))
                     }
-                )
-            }
-            composable(
-                route = Screen.Loto3DViewer.route,
-                arguments = listOf(
-                    navArgument("equipmentName") { type = NavType.StringType },
-                    navArgument("modelFileName") { type = NavType.StringType }
-                )
-            ) { backStackEntry ->
-                val equipmentName = Uri.decode(backStackEntry.arguments?.getString("equipmentName") ?: "")
-                val modelFileName = Uri.decode(backStackEntry.arguments?.getString("modelFileName") ?: "")
-                Loto3DViewerScreen(
-                    equipmentName = equipmentName,
-                    modelFileName = modelFileName
                 )
             }
             composable(Screen.Jha.route) {
@@ -219,6 +207,20 @@ fun AppNavigation() {
                 val fileName = Uri.decode(backStackEntry.arguments?.getString("fileName") ?: "")
                 val pageNumber = backStackEntry.arguments?.getInt("pageNumber") ?: 1
                 PdfViewerScreen(fileName = fileName, initialPage = pageNumber)
+            }
+            composable(
+                route = Screen.Loto3DViewer.route,
+                arguments = listOf(
+                    navArgument("equipmentName") { type = NavType.StringType },
+                    navArgument("modelFileName") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val equipmentName = Uri.decode(backStackEntry.arguments?.getString("equipmentName") ?: "")
+                val modelFileName = Uri.decode(backStackEntry.arguments?.getString("modelFileName") ?: "")
+                Loto3DViewerScreen(
+                    equipmentName = equipmentName,
+                    modelFileName = modelFileName
+                )
             }
         }
     }
