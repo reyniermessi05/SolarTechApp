@@ -102,8 +102,8 @@
             controls.enableZoom = true;
             controls.zoomSpeed = 1.0;
             controls.enablePan = true;
-            controls.minDistance = 1.5;
-            controls.maxDistance = 15;
+            controls.minDistance = 0.8;
+            controls.maxDistance = 20;
             controls.touches = {
                 ONE: THREE.TOUCH.ROTATE,
                 TWO: THREE.TOUCH.DOLLY_PAN
@@ -118,16 +118,16 @@
             scene.add(hemiLight);
 
             const keyLight = new THREE.DirectionalLight(0xffffff, 0.9);
-            keyLight.position.set(4, 6, 5);
+            keyLight.position.set(5, 7, 6);
             scene.add(keyLight);
 
             const fillLight = new THREE.DirectionalLight(0x81d4fa, 0.4);
-            fillLight.position.set(-4, -2, -4);
+            fillLight.position.set(-5, 2, -5);
             scene.add(fillLight);
 
             // Subtle reference grid on the floor for spatial orientation
-            const gridHelper = new THREE.GridHelper(8, 16, 0x37474f, 0x22282d);
-            gridHelper.position.y = -1.1;
+            const gridHelper = new THREE.GridHelper(12, 24, 0x37474f, 0x22282d);
+            gridHelper.position.y = -1.02;
             scene.add(gridHelper);
 
             // Group holding the currently displayed equipment model
@@ -139,14 +139,13 @@
                 const group = new THREE.Group();
                 const geometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
 
-                // Distinct face colors so 360° rotation is clearly visible
                 const faceMaterials = [
                     new THREE.MeshStandardMaterial({ color: 0x1e88e5, roughness: 0.45, metalness: 0.15 }), // +X
                     new THREE.MeshStandardMaterial({ color: 0x1565c0, roughness: 0.45, metalness: 0.15 }), // -X
-                    new THREE.MeshStandardMaterial({ color: 0x90caf9, roughness: 0.40, metalness: 0.10 }), // +Y (top)
-                    new THREE.MeshStandardMaterial({ color: 0x0d47a1, roughness: 0.55, metalness: 0.20 }), // -Y (bottom)
-                    new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.45, metalness: 0.15 }), // +Z (front)
-                    new THREE.MeshStandardMaterial({ color: 0x37474f, roughness: 0.50, metalness: 0.20 })  // -Z (back)
+                    new THREE.MeshStandardMaterial({ color: 0x90caf9, roughness: 0.40, metalness: 0.10 }), // +Y
+                    new THREE.MeshStandardMaterial({ color: 0x0d47a1, roughness: 0.55, metalness: 0.20 }), // -Y
+                    new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.45, metalness: 0.15 }), // +Z
+                    new THREE.MeshStandardMaterial({ color: 0x37474f, roughness: 0.50, metalness: 0.20 })  // -Z
                 ];
 
                 const cubeMesh = new THREE.Mesh(geometry, faceMaterials);
@@ -164,6 +163,346 @@
                 return group;
             }
 
+            /**
+             * Builds a to-scale procedural 3D model of the HEM Gen. 2 inverter (1 unit = 1 meter).
+             * Dimensions: Length (X) = 6.40m, Height (Y) = 2.03m, Depth (Z) = 2.24m.
+             */
+            function createHemGen2Model() {
+                const root = new THREE.Group();
+
+                // Core dimensions
+                const L = 6.40;
+                const W = 2.24;
+                const skidH = 0.18;
+                const bodyH = 1.60;
+                const plenumH = 0.25;
+                const totalH = skidH + bodyH + plenumH; // 2.03m
+
+                // Vertical center coordinates (bottom of skid at -1.015, top of plenum at +1.015)
+                const yBottom = -totalH / 2; // -1.015
+                const skidCenterY = yBottom + skidH / 2; // -0.925
+                const bodyBottomY = yBottom + skidH; // -0.835
+                const bodyCenterY = bodyBottomY + bodyH / 2; // -0.035
+                const bodyTopY = bodyBottomY + bodyH; // +0.765
+                const plenumCenterY = bodyTopY + plenumH / 2; // +0.890
+
+                // Shared materials
+                const matSkid = new THREE.MeshStandardMaterial({ color: 0x8A9096, roughness: 0.55, metalness: 0.60 });
+                const matCabinet = new THREE.MeshStandardMaterial({ color: 0xD2D6DA, roughness: 0.65, metalness: 0.18 });
+                const matSeam = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.75, metalness: 0.20 });
+                const matLatch = new THREE.MeshStandardMaterial({ color: 0x1E1E1E, roughness: 0.50, metalness: 0.35 });
+                const matVent = new THREE.MeshStandardMaterial({ color: 0x262A2E, roughness: 0.80, metalness: 0.25 });
+                const matYellow = new THREE.MeshStandardMaterial({ color: 0xFBC02D, roughness: 0.40, metalness: 0.15 });
+                const matRed = new THREE.MeshStandardMaterial({ color: 0xD32F2F, roughness: 0.35, metalness: 0.15 });
+                const matBrass = new THREE.MeshStandardMaterial({ color: 0xC5A049, roughness: 0.35, metalness: 0.75 });
+                const matGrayHandle = new THREE.MeshStandardMaterial({ color: 0x6E757C, roughness: 0.45, metalness: 0.40 });
+                const matLedWhite = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, emissive: 0xFFFFFF, emissiveIntensity: 0.55, roughness: 0.2 });
+                const matLedGreen = new THREE.MeshStandardMaterial({ color: 0x4CAF50, emissive: 0x2E7D32, emissiveIntensity: 0.65, roughness: 0.2 });
+                const matLedRed = new THREE.MeshStandardMaterial({ color: 0xFF5252, emissive: 0xD32F2F, emissiveIntensity: 0.65, roughness: 0.2 });
+
+                function addBox(w, h, d, x, y, z, mat, parent = root) {
+                    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+                    mesh.position.set(x, y, z);
+                    parent.add(mesh);
+                    return mesh;
+                }
+
+                // 1. Galvanized steel base skid (6.40 x 0.18 x 2.24)
+                addBox(L, skidH, W, 0, skidCenterY, 0, matSkid);
+
+                // 2. Main cabinet body (6.40 x 1.60 x 2.24)
+                addBox(L, bodyH, W, 0, bodyCenterY, 0, matCabinet);
+
+                // 3. Top roof / ventilation plenum (slightly overhanging: 6.48 x 0.25 x 2.32)
+                const plenumOverhang = 0.04;
+                const plenumL = L + plenumOverhang * 2;
+                const plenumW = W + plenumOverhang * 2;
+                addBox(plenumL, plenumH, plenumW, 0, plenumCenterY, 0, matCabinet);
+
+                // Subtle seam between skid and body, and under plenum
+                addBox(L + 0.008, 0.012, W + 0.008, 0, bodyBottomY, 0, matSeam);
+                addBox(L + 0.008, 0.014, W + 0.008, 0, bodyTopY, 0, matSeam);
+
+                // Helper: vertical black latch on Z faces (+1 or -1)
+                function addZLatch(x, y, zSign) {
+                    const z = zSign * (W / 2 + 0.012);
+                    addBox(0.032, 0.16, 0.022, x, y, z, matLatch);
+                }
+
+                // Helper: louvered vent grille on Z faces
+                function addZLouverGrille(x, y, zPos, width, height, slatCount) {
+                    const zDir = zPos >= 0 ? 1 : -1;
+                    addBox(width, height, 0.012, x, y, zPos + zDir * 0.006, matVent);
+                    const step = height / (slatCount + 1);
+                    for (let s = 1; s <= slatCount; s++) {
+                        const sy = y - height / 2 + s * step;
+                        addBox(width - 0.04, 0.012, 0.018, x, sy, zPos + zDir * 0.012, matCabinet);
+                    }
+                }
+
+                // Helper: 3 stacked horizontal angled louver hoods protruding outward on Z face
+                function addStackedLouverHoods(bayX, zSign) {
+                    const hoodW = 0.72;
+                    const hoodH = 0.22;
+                    const hoodD = 0.13;
+                    const baseZ = zSign * (W / 2);
+                    const ys = [bodyCenterY + 0.44, bodyCenterY + 0.15, bodyCenterY - 0.14];
+                    ys.forEach((hy) => {
+                        const hoodGroup = new THREE.Group();
+                        hoodGroup.position.set(bayX, hy, baseZ);
+                        // Outer hood shell
+                        const shell = new THREE.Mesh(new THREE.BoxGeometry(hoodW, hoodH, hoodD), matCabinet);
+                        shell.position.set(0, 0, zSign * (hoodD / 2));
+                        hoodGroup.add(shell);
+                        // Dark angled intake/exhaust opening
+                        const opening = new THREE.Mesh(new THREE.BoxGeometry(hoodW - 0.06, hoodH - 0.06, 0.02), matVent);
+                        opening.position.set(0, -0.01, zSign * (hoodD + 0.002));
+                        hoodGroup.add(opening);
+                        // Top sloped cap
+                        const cap = new THREE.Mesh(new THREE.BoxGeometry(hoodW + 0.02, 0.025, hoodD + 0.02), matSeam);
+                        cap.position.set(0, hoodH / 2 + 0.005, zSign * (hoodD / 2));
+                        hoodGroup.add(cap);
+                        root.add(hoodGroup);
+                    });
+                }
+
+                // Helper: lower protruding rectangular intake/exhaust hood on Z face
+                function addLowerHood(bayX, zSign) {
+                    const hoodW = 0.68;
+                    const hoodH = 0.44;
+                    const hoodD = 0.16;
+                    const hy = bodyBottomY + 0.36;
+                    const baseZ = zSign * (W / 2);
+                    addBox(hoodW, hoodH, hoodD, bayX, hy, baseZ + zSign * (hoodD / 2), matCabinet);
+                    addBox(hoodW - 0.08, hoodH - 0.10, 0.02, bayX, hy - 0.02, baseZ + zSign * (hoodD + 0.004), matVent);
+                    addBox(hoodW + 0.02, 0.025, hoodD + 0.02, bayX, hy + hoodH / 2 + 0.005, baseZ + zSign * (hoodD / 2), matSeam);
+                }
+
+                // =========================================================
+                // 1. FRONT FACE (+Z, Control Side): 7 vertical cabinet bays
+                // =========================================================
+                const bayCount = 7;
+                const bayW = L / bayCount;
+                const frontZ = W / 2;
+
+                // Vertical bay seams
+                for (let i = 1; i < bayCount; i++) {
+                    const seamX = -L / 2 + i * bayW;
+                    addBox(0.012, bodyH - 0.02, 0.008, seamX, bodyCenterY, frontZ + 0.004, matSeam);
+                }
+
+                for (let i = 0; i < bayCount; i++) {
+                    const bayX = -L / 2 + (i + 0.5) * bayW;
+                    const latchX = bayX + bayW * 0.36;
+
+                    if (i === 0 || i === 1) {
+                        // Bays 1-2: Split upper/lower doors with black latches
+                        addBox(bayW - 0.03, 0.010, 0.008, bayX, bodyCenterY, frontZ + 0.004, matSeam);
+                        addZLatch(latchX, bodyCenterY + 0.35, +1);
+                        addZLatch(latchX, bodyCenterY - 0.35, +1);
+                    } else if (i === 2) {
+                        // Bay 3: Upper door + lower protruding rectangular intake/exhaust hood
+                        addBox(bayW - 0.03, 0.010, 0.008, bayX, bodyCenterY, frontZ + 0.004, matSeam);
+                        addZLatch(latchX, bodyCenterY + 0.35, +1);
+                        addLowerHood(bayX, +1);
+                    } else if (i === 3) {
+                        // Bay 4 (center): 3 stacked horizontal angled louver hoods + small dark vent grille below
+                        addStackedLouverHoods(bayX, +1);
+                        addZLouverGrille(bayX, bodyBottomY + 0.24, frontZ, 0.64, 0.26, 4);
+                    } else if (i === 4) {
+                        // Bay 5: Full-height door
+                        addZLatch(latchX, bodyCenterY, +1);
+                    } else if (i === 5) {
+                        // Bay 6 (Main Control Cabinet): Full-height door + 3D control panel elements
+                        addZLatch(latchX, bodyCenterY, +1);
+
+                        const panelZ = frontZ + 0.008;
+                        // Subtle dark bezel/plate behind control panel
+                        addBox(0.68, 0.96, 0.008, bayX - 0.03, bodyCenterY + 0.08, panelZ - 0.002, matSeam);
+                        addBox(0.66, 0.94, 0.008, bayX - 0.03, bodyCenterY + 0.08, panelZ, matCabinet);
+
+                        // Top row (y = bodyCenterY + 0.42): OFF/ON key switch, White LED, Green LED, Red LED, STOP button
+                        const topY = bodyCenterY + 0.42;
+                        const topXs = [bayX - 0.26, bayX - 0.14, bayX - 0.04, bayX + 0.06, bayX + 0.19];
+
+                        // OFF/ON key switch (brass collar + black key)
+                        const keyBase = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.024, 16), matBrass);
+                        keyBase.rotation.x = Math.PI / 2;
+                        keyBase.position.set(topXs[0], topY, panelZ + 0.012);
+                        root.add(keyBase);
+                        addBox(0.012, 0.038, 0.025, topXs[0], topY, panelZ + 0.028, matLatch);
+
+                        // White LED (AC VOLTAGE), Green LED (RUN), Red LED (FAULT/WARNING)
+                        const ledMats = [matLedWhite, matLedGreen, matLedRed];
+                        for (let l = 0; l < 3; l++) {
+                            const bezel = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.020, 0.012, 16), matLatch);
+                            bezel.rotation.x = Math.PI / 2;
+                            bezel.position.set(topXs[l + 1], topY, panelZ + 0.006);
+                            root.add(bezel);
+
+                            const lens = new THREE.Mesh(new THREE.SphereGeometry(0.014, 12, 12), ledMats[l]);
+                            lens.position.set(topXs[l + 1], topY, panelZ + 0.014);
+                            root.add(lens);
+                        }
+
+                        // Yellow-collar Red mushroom STOP button
+                        const stopCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.014, 20), matYellow);
+                        stopCollar.rotation.x = Math.PI / 2;
+                        stopCollar.position.set(topXs[4], topY, panelZ + 0.007);
+                        root.add(stopCollar);
+
+                        const stopStem = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.025, 16), matLatch);
+                        stopStem.rotation.x = Math.PI / 2;
+                        stopStem.position.set(topXs[4], topY, panelZ + 0.020);
+                        root.add(stopStem);
+
+                        const stopCap = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.026, 0.022, 20), matRed);
+                        stopCap.rotation.x = Math.PI / 2;
+                        stopCap.position.set(topXs[4], topY, panelZ + 0.036);
+                        root.add(stopCap);
+
+                        // Middle row (y = bodyCenterY + 0.06): DC DISCONNECT & MV AC DISCONNECT
+                        const midY = bodyCenterY + 0.06;
+                        const dcX = bayX - 0.17;
+                        const mvX = bayX + 0.11;
+
+                        // DC DISCONNECT (yellow ring with black center rotary handle)
+                        const dcRing = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.016, 24), matYellow);
+                        dcRing.rotation.x = Math.PI / 2;
+                        dcRing.position.set(dcX, midY, panelZ + 0.008);
+                        root.add(dcRing);
+                        const dcCenter = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.022, 20), matLatch);
+                        dcCenter.rotation.x = Math.PI / 2;
+                        dcCenter.position.set(dcX, midY, panelZ + 0.015);
+                        root.add(dcCenter);
+                        addBox(0.026, 0.11, 0.026, dcX, midY, panelZ + 0.032, matLatch);
+
+                        // MV AC DISCONNECT (yellow square base with red rotary handle)
+                        addBox(0.145, 0.145, 0.016, mvX, midY, panelZ + 0.008, matYellow);
+                        const mvHub = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.022, 16), matRed);
+                        mvHub.rotation.x = Math.PI / 2;
+                        mvHub.position.set(mvX, midY, panelZ + 0.016);
+                        root.add(mvHub);
+                        addBox(0.105, 0.026, 0.026, mvX, midY, panelZ + 0.032, matRed);
+
+                        // Bottom row (y = bodyCenterY - 0.26): 2 small black circular ports (DISPLAY and ETH)
+                        const botY = bodyCenterY - 0.26;
+                        [bayX - 0.12, bayX + 0.06].forEach((px) => {
+                            const portRing = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.016, 16), matSkid);
+                            portRing.rotation.x = Math.PI / 2;
+                            portRing.position.set(px, botY, panelZ + 0.008);
+                            root.add(portRing);
+
+                            const portCore = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.020, 0.020, 16), matLatch);
+                            portCore.rotation.x = Math.PI / 2;
+                            portCore.position.set(px, botY, panelZ + 0.010);
+                            root.add(portCore);
+                        });
+                    } else if (i === 6) {
+                        // Bay 7 (right): Full-height door
+                        addZLatch(latchX, bodyCenterY, +1);
+                    }
+                }
+
+                // Top plenum (+Z): 6 dark louvered vent grilles along the top edge
+                const frontPlenumZ = plenumW / 2;
+                for (let g = 0; g < 6; g++) {
+                    const gx = -L / 2 + (g + 0.5) * (L / 6);
+                    addZLouverGrille(gx, plenumCenterY, frontPlenumZ, 0.76, 0.14, 3);
+                }
+
+                // =========================================================
+                // 2. BACK FACE (-Z): 7 vertical bays mirroring structure
+                // =========================================================
+                const backZ = -W / 2;
+                for (let i = 1; i < bayCount; i++) {
+                    const seamX = -L / 2 + i * bayW;
+                    addBox(0.012, bodyH - 0.02, 0.008, seamX, bodyCenterY, backZ - 0.004, matSeam);
+                }
+
+                for (let i = 0; i < bayCount; i++) {
+                    const bayX = -L / 2 + (i + 0.5) * bayW;
+                    const latchX = bayX - bayW * 0.36;
+
+                    if (i === 3) {
+                        // Bay 4 (center): 3 stacked horizontal angled louver hoods
+                        addStackedLouverHoods(bayX, -1);
+                    } else if (i === 4) {
+                        // Bay 5: Upper door + lower protruding hood
+                        addBox(bayW - 0.03, 0.010, 0.008, bayX, bodyCenterY, backZ - 0.004, matSeam);
+                        addZLatch(latchX, bodyCenterY + 0.35, -1);
+                        addLowerHood(bayX, -1);
+                    } else if (i === 0 || i === 1) {
+                        addZLatch(latchX, bodyCenterY, -1);
+                    } else {
+                        addBox(bayW - 0.03, 0.010, 0.008, bayX, bodyCenterY, backZ - 0.004, matSeam);
+                        addZLatch(latchX, bodyCenterY + 0.35, -1);
+                        addZLatch(latchX, bodyCenterY - 0.35, -1);
+                    }
+                }
+
+                // Top plenum (-Z): 6 dark louvered vent grilles
+                const backPlenumZ = -plenumW / 2;
+                for (let g = 0; g < 6; g++) {
+                    const gx = -L / 2 + (g + 0.5) * (L / 6);
+                    addZLouverGrille(gx, plenumCenterY, backPlenumZ, 0.76, 0.14, 3);
+                }
+
+                // =========================================================
+                // 3. LEFT END FACE (-X, DC Cabinet End): 3 columns split upper/lower
+                // =========================================================
+                const leftX = -L / 2;
+                const colCount = 3;
+                const colW = W / colCount;
+
+                // Vertical column seams + horizontal split seam
+                for (let c = 1; c < colCount; c++) {
+                    const seamZ = -W / 2 + c * colW;
+                    addBox(0.008, bodyH - 0.02, 0.012, leftX - 0.004, bodyCenterY, seamZ, matSeam);
+                }
+                addBox(0.008, 0.012, W - 0.02, leftX - 0.004, bodyCenterY, 0, matSeam);
+
+                for (let c = 0; c < colCount; c++) {
+                    const colZ = -W / 2 + (c + 0.5) * colW;
+
+                    // Black door latches on upper and lower doors
+                    addBox(0.022, 0.14, 0.030, leftX - 0.012, bodyCenterY + 0.35, colZ + colW * 0.35, matLatch);
+                    addBox(0.022, 0.14, 0.030, leftX - 0.012, bodyCenterY - 0.35, colZ + colW * 0.35, matLatch);
+
+                    // 2 gray rotary disconnect handles per upper door (6 total, 2 rows of 3)
+                    [bodyCenterY + 0.50, bodyCenterY + 0.24].forEach((hy) => {
+                        const basePlate = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.016, 16), matSeam);
+                        basePlate.rotation.z = Math.PI / 2;
+                        basePlate.position.set(leftX - 0.008, hy, colZ - 0.04);
+                        root.add(basePlate);
+
+                        const handleBar = addBox(0.028, 0.095, 0.026, leftX - 0.022, hy, colZ - 0.04, matGrayHandle);
+                        handleBar.rotation.x = Math.PI / 8;
+                    });
+                }
+
+                // Top plenum (-X): 1 centered horizontal louvered vent grille
+                const leftPlenumX = -plenumL / 2;
+                addBox(0.012, 0.14, 1.10, leftPlenumX - 0.006, plenumCenterY, 0, matVent);
+                for (let s = 1; s <= 3; s++) {
+                    const sy = plenumCenterY - 0.07 + s * (0.14 / 4);
+                    addBox(0.018, 0.012, 1.04, leftPlenumX - 0.012, sy, 0, matCabinet);
+                }
+
+                // =========================================================
+                // 4. RIGHT END FACE (+X, MV End): 2 full-height double doors
+                // =========================================================
+                const rightX = L / 2;
+                // Center vertical seam separating the 2 full-height double doors
+                addBox(0.008, bodyH - 0.02, 0.014, rightX + 0.004, bodyCenterY, 0, matSeam);
+                // Centered black handles/latches
+                addBox(0.024, 0.20, 0.036, rightX + 0.012, bodyCenterY, -0.09, matLatch);
+                addBox(0.024, 0.20, 0.036, rightX + 0.012, bodyCenterY, +0.09, matLatch);
+                // Solid top plenum (+X): no vent
+
+                return root;
+            }
+
             function clearEquipmentGroup() {
                 while (equipmentGroup.children.length > 0) {
                     const child = equipmentGroup.children[0];
@@ -172,9 +511,42 @@
             }
 
             /**
+             * Frames the camera at a 3/4 front-right isometric angle so the full
+             * 6.40m HEM Gen. 2 inverter fits cleanly on screen regardless of aspect ratio.
+             */
+            function frameHemGen2Camera() {
+                controls.target.set(0, 0, 0);
+                const dir = new THREE.Vector3(0.68, 0.38, 0.82).normalize();
+                const fovRad = THREE.MathUtils.degToRad(camera.fov);
+                const hFovRad = 2 * Math.atan(Math.tan(fovRad / 2) * camera.aspect);
+
+                // Bounding half-extents projected roughly onto view plane
+                const halfWidth = 3.6;
+                const halfHeight = 1.4;
+                const distForWidth = halfWidth / Math.tan(hFovRad / 2);
+                const distForHeight = halfHeight / Math.tan(fovRad / 2);
+                const distance = Math.max(distForWidth, distForHeight, 6.8) * 1.08;
+
+                camera.position.copy(dir.multiplyScalar(distance));
+                controls.minDistance = 0.7;
+                controls.maxDistance = 20;
+                controls.update();
+            }
+
+            function framePlaceholderCamera() {
+                controls.target.set(0, 0, 0);
+                camera.position.set(2.8, 2.2, 3.2);
+                controls.minDistance = 1.5;
+                controls.maxDistance = 15;
+                controls.update();
+            }
+
+            let currentModelFile = 'placeholder';
+
+            /**
              * Loads the 3D model for the selected equipment.
-             * Currently displays the placeholder cube. Once .glb files are placed in
-             * app/src/main/assets/, uncomment the GLTFLoader block below.
+             * Renders the to-scale procedural HEM Gen. 2 model for 'model_hem2.glb',
+             * and keeps the placeholder cube for 'model_hem3.glb' and 'model_dcdc3.glb'.
              *
              * @param {string} fileName - e.g., "model_hem2.glb", "model_hem3.glb", "model_dcdc3.glb"
              */
@@ -182,23 +554,28 @@
                 clearEquipmentGroup();
 
                 const targetName = fileName || 'placeholder';
-                modelLabel.textContent = 'Model: ' + targetName + ' (Placeholder)';
+                currentModelFile = targetName;
 
-                // --- Placeholder Cube (active until .glb assets are added) ---
-                const placeholder = createPlaceholderCube();
-                equipmentGroup.add(placeholder);
+                if (targetName === 'model_hem2.glb') {
+                    modelLabel.textContent = 'HEM Gen. 2 (6.40m × 2.03m × 2.24m)';
+                    equipmentGroup.add(createHemGen2Model());
+                    frameHemGen2Camera();
+                    return;
+                }
+
+                modelLabel.textContent = 'Model: ' + targetName + ' (Placeholder)';
+                equipmentGroup.add(createPlaceholderCube());
+                framePlaceholderCamera();
 
                 /*
                 // --- Future GLTFLoader block for .glb files in app/src/main/assets/ ---
                 // Served safely via WebViewAssetLoader at https://appassets.androidplatform.net/assets/
                 const loader = new THREE.GLTFLoader();
                 loader.load(
-                    targetName, // relative to https://appassets.androidplatform.net/assets/loto_viewer.html
+                    targetName,
                     function (gltf) {
                         clearEquipmentGroup();
                         const model = gltf.scene;
-
-                        // Auto-center and normalize scale to fit viewport
                         const box = new THREE.Box3().setFromObject(model);
                         const size = box.getSize(new THREE.Vector3());
                         const center = box.getCenter(new THREE.Vector3());
@@ -206,14 +583,12 @@
                         const scale = 2.0 / maxDim;
                         model.scale.setScalar(scale);
                         model.position.sub(center.multiplyScalar(scale));
-
                         equipmentGroup.add(model);
                         modelLabel.textContent = 'Model: ' + targetName;
                     },
                     undefined,
                     function (error) {
                         console.error('Error loading GLB model:', error);
-                        // Fallback to placeholder cube if .glb is missing
                         clearEquipmentGroup();
                         equipmentGroup.add(createPlaceholderCube());
                     }
@@ -231,6 +606,9 @@
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
                 renderer.setSize(window.innerWidth, window.innerHeight);
+                if (currentModelFile === 'model_hem2.glb') {
+                    frameHemGen2Camera();
+                }
             });
 
             // Render loop
