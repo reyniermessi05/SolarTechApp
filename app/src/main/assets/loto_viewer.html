@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>LOTO 3D Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #121212;
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        #viewer-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+        #hud {
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 14px;
+            border-radius: 20px;
+            background: rgba(30, 30, 30, 0.78);
+            border: 1px solid rgba(144, 202, 249, 0.25);
+            color: #e0e0e0;
+            font-size: 12px;
+            letter-spacing: 0.3px;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="viewer-container">
+        <div id="hud">Drag to rotate 360° • Pinch to zoom</div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        const container = document.getElementById('viewer-container');
+        const hud = document.getElementById('hud');
+
+        // Scene setup matching SolarApp dark theme (#121212)
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x121212);
+
+        // Camera setup
+        const camera = new THREE.PerspectiveCamera(
+            45,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            100
+        );
+        camera.position.set(2.8, 2.2, 3.2);
+
+        // WebGLRenderer with antialiasing and DPR support
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        container.appendChild(renderer.domElement);
+
+        // Subtle studio lighting for clear face shading
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+        scene.add(ambientLight);
+
+        const keyLight = new THREE.DirectionalLight(0xffffff, 1.1);
+        keyLight.position.set(5, 8, 6);
+        scene.add(keyLight);
+
+        const rimLight = new THREE.DirectionalLight(0x90caf9, 0.45);
+        rimLight.position.set(-5, -4, -5);
+        scene.add(rimLight);
+
+        // Subtle reference grid
+        const gridHelper = new THREE.GridHelper(6, 12, 0x2c2c2c, 0x1e1e1e);
+        gridHelper.position.y = -1.1;
+        scene.add(gridHelper);
+
+        // OrbitControls: 1-finger drag to rotate 360°, 2-finger pinch to zoom, smooth damping
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.06;
+        controls.enableRotate = true;
+        controls.enableZoom = true;
+        controls.enablePan = false;
+        controls.minDistance = 2.0;
+        controls.maxDistance = 12.0;
+        controls.minPolarAngle = 0;
+        controls.maxPolarAngle = Math.PI;
+        controls.touches = {
+            ONE: THREE.TOUCH.ROTATE,
+            TWO: THREE.TOUCH.DOLLY_PAN
+        };
+
+        // Group holding the active equipment model or placeholder
+        const modelGroup = new THREE.Group();
+        scene.add(modelGroup);
+
+        // GLTFLoader instance ready for .glb assets served via WebViewAssetLoader
+        const gltfLoader = new GLTFLoader();
+
+        function clearModelGroup() {
+            while (modelGroup.children.length > 0) {
+                const child = modelGroup.children[0];
+                modelGroup.remove(child);
+                child.traverse((node) => {
+                    if (node.geometry) node.geometry.dispose();
+                    if (node.material) {
+                        if (Array.isArray(node.material)) {
+                            node.material.forEach((m) => m.dispose());
+                        } else {
+                            node.material.dispose();
+                        }
+                    }
+                });
+            }
+        }
+
+        function createPlaceholderCube() {
+            const geometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+
+            // Distinct face shading so 360-degree rotation is immediately legible
+            const faceMaterials = [
+                new THREE.MeshStandardMaterial({ color: 0x1565c0, roughness: 0.45, metalness: 0.2 }), // +X
+                new THREE.MeshStandardMaterial({ color: 0x0d47a1, roughness: 0.45, metalness: 0.2 }), // -X
+                new THREE.MeshStandardMaterial({ color: 0x90caf9, roughness: 0.40, metalness: 0.15 }), // +Y
+                new THREE.MeshStandardMaterial({ color: 0x263238, roughness: 0.55, metalness: 0.25 }), // -Y
+                new THREE.MeshStandardMaterial({ color: 0x1e88e5, roughness: 0.45, metalness: 0.2 }), // +Z
+                new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.45, metalness: 0.2 })  // -Z
+            ];
+
+            const cube = new THREE.Mesh(geometry, faceMaterials);
+
+            // Crisp edge highlights
+            const edges = new THREE.EdgesGeometry(geometry);
+            const lineMaterial = new THREE.LineBasicMaterial({ color: 0xe3f2fd });
+            const wireframe = new THREE.LineSegments(edges, lineMaterial);
+            cube.add(wireframe);
+
+            return cube;
+        }
+
+        /**
+         * Loads the 3D equipment model by filename from app/src/main/assets/.
+         * Currently renders a placeholder cube until .glb files are added.
+         */
+        function loadEquipmentModel(fileName) {
+            clearModelGroup();
+
+            // --- Future GLTFLoader block (uncomment when .glb files are placed in app/src/main/assets/) ---
+            // const modelUrl = `https://appassets.androidplatform.net/assets/${fileName}`;
+            // gltfLoader.load(
+            //     modelUrl,
+            //     (gltf) => {
+            //         const model = gltf.scene;
+            //         // Center and normalize model scale if needed:
+            //         const box = new THREE.Box3().setFromObject(model);
+            //         const center = box.getCenter(new THREE.Vector3());
+            //         model.position.sub(center);
+            //         modelGroup.add(model);
+            //         hud.textContent = `${fileName} • Drag to rotate • Pinch to zoom`;
+            //     },
+            //     undefined,
+            //     (error) => {
+            //         console.error('Error loading GLB model:', fileName, error);
+            //         modelGroup.add(createPlaceholderCube());
+            //     }
+            // );
+            // return;
+
+            // Placeholder cube for current stage
+            const placeholderCube = createPlaceholderCube();
+            modelGroup.add(placeholderCube);
+
+            if (fileName) {
+                hud.textContent = `Placeholder (${fileName}) • Drag to rotate • Pinch to zoom`;
+            }
+        }
+
+        // Expose globally so Android WebView.evaluateJavascript can invoke it
+        window.loadEquipmentModel = loadEquipmentModel;
+
+        // Initial load from query parameter if provided
+        const initialModel = new URLSearchParams(window.location.search).get('model');
+        loadEquipmentModel(initialModel || '');
+
+        // Handle resize / orientation changes
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Render loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
