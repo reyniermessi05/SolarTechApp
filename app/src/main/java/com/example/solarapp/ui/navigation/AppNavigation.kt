@@ -26,6 +26,8 @@ import androidx.navigation.navArgument
 import com.example.solarapp.ui.screens.FaultDetailScreen
 import com.example.solarapp.ui.screens.FaultFinderScreen
 import com.example.solarapp.ui.screens.HomeScreen
+import com.example.solarapp.ui.screens.Loto3DViewerScreen
+import com.example.solarapp.ui.screens.LotoMenuScreen
 import com.example.solarapp.ui.screens.PdfViewerScreen
 import com.example.solarapp.ui.screens.PlaceholderScreen
 import com.example.solarapp.ui.screens.TroubleshootingScreen
@@ -34,6 +36,10 @@ sealed class Screen(val route: String, val title: String) {
     object Home : Screen("home", "Solar Field Tool")
     object Troubleshooting : Screen("troubleshooting", "Troubleshooting")
     object Loto : Screen("loto", "LOTO")
+    object Loto3DViewer : Screen("loto3DViewer/{equipmentName}/{modelFileName}", "LOTO 3D") {
+        fun createRoute(equipmentName: String, modelFileName: String) =
+            "loto3DViewer/${Uri.encode(equipmentName)}/${Uri.encode(modelFileName)}"
+    }
     object Jha : Screen("jha", "JHA")
     object Plants : Screen("plants", "Plants")
     object Report : Screen("report", "Report")
@@ -60,6 +66,10 @@ fun AppNavigation() {
         currentRoute == Screen.Home.route -> androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.title_home)
         currentRoute == Screen.Troubleshooting.route -> Screen.Troubleshooting.title
         currentRoute == Screen.Loto.route -> Screen.Loto.title
+        currentRoute?.startsWith("loto3DViewer/") == true -> {
+            val equipmentName = Uri.decode(navBackStackEntry?.arguments?.getString("equipmentName") ?: "")
+            "$equipmentName - LOTO 3D"
+        }
         currentRoute == Screen.Jha.route -> Screen.Jha.title
         currentRoute == Screen.Plants.route -> Screen.Plants.title
         currentRoute == Screen.Report.route -> Screen.Report.title
@@ -138,7 +148,27 @@ fun AppNavigation() {
                 )
             }
             composable(Screen.Loto.route) {
-                PlaceholderScreen(title = "LOTO Procedures")
+                LotoMenuScreen(
+                    onEquipmentSelected = { equipmentName, modelFileName ->
+                        navController.navigate(
+                            Screen.Loto3DViewer.createRoute(equipmentName, modelFileName)
+                        )
+                    }
+                )
+            }
+            composable(
+                route = Screen.Loto3DViewer.route,
+                arguments = listOf(
+                    navArgument("equipmentName") { type = NavType.StringType },
+                    navArgument("modelFileName") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val equipmentName = Uri.decode(backStackEntry.arguments?.getString("equipmentName") ?: "")
+                val modelFileName = Uri.decode(backStackEntry.arguments?.getString("modelFileName") ?: "")
+                Loto3DViewerScreen(
+                    equipmentName = equipmentName,
+                    modelFileName = modelFileName
+                )
             }
             composable(Screen.Jha.route) {
                 PlaceholderScreen(title = "Job Hazard Analysis")

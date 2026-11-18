@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>LOTO 3D Viewer</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #121212;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #canvas-container {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        .hud-bottom {
+            position: fixed;
+            left: 16px;
+            right: 16px;
+            bottom: 16px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 12px;
+            pointer-events: none;
+        }
+
+        .info-card {
+            background: rgba(30, 30, 30, 0.85);
+            border: 1px solid rgba(144, 202, 249, 0.28);
+            border-radius: 12px;
+            padding: 10px 14px;
+            backdrop-filter: blur(6px);
+            max-width: 72%;
+        }
+
+        .info-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #90caf9;
+            margin: 0 0 2px 0;
+            letter-spacing: 0.2px;
+        }
+
+        .info-subtitle {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.72);
+            margin: 0;
+            line-height: 1.35;
+        }
+
+        .reset-btn {
+            pointer-events: auto;
+            background: rgba(30, 30, 30, 0.9);
+            color: #90caf9;
+            border: 1px solid rgba(144, 202, 249, 0.45);
+            border-radius: 20px;
+            padding: 10px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .reset-btn:active {
+            background: rgba(144, 202, 249, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+
+    <div class="hud-bottom">
+        <div class="info-card">
+            <p class="info-title" id="model-label">LOTO 3D Placeholder</p>
+            <p class="info-subtitle" id="gesture-hint">Drag with 1 finger to rotate 360° · Pinch to zoom</p>
+        </div>
+        <button class="reset-btn" id="reset-btn" type="button">Reset View</button>
+    </div>
+
+    <script type="module">
+        import * as THREE from './js/three.module.min.js';
+        import { OrbitControls } from './js/OrbitControls.js';
+        import { GLTFLoader } from './js/GLTFLoader.js';
+
+        const container = document.getElementById('canvas-container');
+        const modelLabelEl = document.getElementById('model-label');
+        const resetBtnEl = document.getElementById('reset-btn');
+
+        // 1. Scene setup matching the app's dark theme (#121212)
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x121212);
+
+        // 2. Camera setup
+        const DEFAULT_CAMERA_POS = new THREE.Vector3(2.8, 2.2, 3.2);
+        const DEFAULT_TARGET = new THREE.Vector3(0, 0, 0);
+
+        const camera = new THREE.PerspectiveCamera(
+            45,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            100
+        );
+        camera.position.copy(DEFAULT_CAMERA_POS);
+
+        // 3. Hardware-accelerated WebGLRenderer
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            alpha: false,
+            powerPreference: 'high-performance'
+        });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.05;
+        container.appendChild(renderer.domElement);
+
+        // 4. Subtle multi-point lighting for clear 3D depth perception
+        const hemiLight = new THREE.HemisphereLight(0xddeeff, 0x1e222a, 0.9);
+        hemiLight.position.set(0, 10, 0);
+        scene.add(hemiLight);
+
+        const keyLight = new THREE.DirectionalLight(0xffffff, 1.35);
+        keyLight.position.set(5, 8, 6);
+        scene.add(keyLight);
+
+        const rimLight = new THREE.DirectionalLight(0x90caf9, 0.7);
+        rimLight.position.set(-5, -3, -5);
+        scene.add(rimLight);
+
+        // Subtle dark floor grid to anchor spatial orientation while orbiting
+        const gridHelper = new THREE.GridHelper(8, 16, 0x33475b, 0x22262c);
+        gridHelper.position.y = -0.95;
+        scene.add(gridHelper);
+
+        // 5. OrbitControls with full 360° 1-finger rotation, pinch-to-zoom, and smooth damping
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.06;
+        controls.enableRotate = true;
+        controls.rotateSpeed = 0.85;
+        controls.enableZoom = true;
+        controls.zoomSpeed = 1.0;
+        controls.enablePan = false;
+        controls.minDistance = 1.6;
+        controls.maxDistance = 12.0;
+        controls.minPolarAngle = 0;
+        controls.maxPolarAngle = Math.PI;
+        controls.touches = {
+            ONE: THREE.TOUCH.ROTATE,
+            TWO: THREE.TOUCH.DOLLY_PAN
+        };
+        controls.target.copy(DEFAULT_TARGET);
+        controls.update();
+
+        // Reusable GLTFLoader instance ready for future .glb equipment models
+        const gltfLoader = new GLTFLoader();
+        let activeModelRoot = null;
+
+        /**
+         * Disposes geometries and materials of the currently displayed 3D object.
+         */
+        function clearActiveModel() {
+            if (!activeModelRoot) return;
+            scene.remove(activeModelRoot);
+            activeModelRoot.traverse((child) => {
+                if (child.geometry) {
+                    child.geometry.dispose();
+                }
+                if (child.material) {
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach((mat) => mat.dispose());
+                    } else {
+                        child.material.dispose();
+                    }
+                }
+            });
+            activeModelRoot = null;
+        }
+
+        /**
+         * Builds the placeholder cube with distinct face shading and highlighted edges
+         * so 360° rotation and orientation are unmistakably visible.
+         */
+        function createPlaceholderCube() {
+            const group = new THREE.Group();
+            const geometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+
+            // Distinct industrial tones per face (Right, Left, Top, Bottom, Front, Back)
+            const faceMaterials = [
+                new THREE.MeshStandardMaterial({ color: 0x2b5876, roughness: 0.45, metalness: 0.25 }),
+                new THREE.MeshStandardMaterial({ color: 0x3b4d61, roughness: 0.45, metalness: 0.25 }),
+                new THREE.MeshStandardMaterial({ color: 0x4e7ea8, roughness: 0.35, metalness: 0.2 }),
+                new THREE.MeshStandardMaterial({ color: 0x1e2833, roughness: 0.55, metalness: 0.3 }),
+                new THREE.MeshStandardMaterial({ color: 0x2e6f95, roughness: 0.4, metalness: 0.25 }),
+                new THREE.MeshStandardMaterial({ color: 0x264653, roughness: 0.45, metalness: 0.25 })
+            ];
+
+            const cubeMesh = new THREE.Mesh(geometry, faceMaterials);
+            group.add(cubeMesh);
+
+            // Crisp glowing edge outline matching the app's dark-theme accent (#90CAF9)
+            const edgesGeo = new THREE.EdgesGeometry(geometry);
+            const edgesMat = new THREE.LineBasicMaterial({ color: 0x90caf9 });
+            const edgesLines = new THREE.LineSegments(edgesGeo, edgesMat);
+            group.add(edgesLines);
+
+            return group;
+        }
+
+        /**
+         * Resets the camera and orbit target to the default framing.
+         */
+        function resetCamera() {
+            camera.position.copy(DEFAULT_CAMERA_POS);
+            controls.target.copy(DEFAULT_TARGET);
+            controls.update();
+        }
+
+        /**
+         * Loads the requested equipment 3D model.
+         * Currently renders the placeholder cube until the .glb files
+         * (model_hem2.glb, model_hem3.glb, model_dcdc3.glb) are added to app/src/main/assets/.
+         *
+         * @param {string} fileName - Target .glb filename in app/src/main/assets/
+         * @param {string} [equipmentName] - Optional display label for the HUD
+         */
+        function loadEquipmentModel(fileName, equipmentName) {
+            clearActiveModel();
+
+            const safeFileName = fileName || 'placeholder.glb';
+            const displayLabel = equipmentName
+                ? `${equipmentName} · ${safeFileName}`
+                : safeFileName;
+            modelLabelEl.textContent = displayLabel;
+
+            // Display placeholder cube for now
+            activeModelRoot = createPlaceholderCube();
+            scene.add(activeModelRoot);
+            resetCamera();
+
+            /*
+             * =========================================================================
+             * READY FOR FUTURE .GLB MODELS (served cleanly via WebViewAssetLoader)
+             * Once model_hem2.glb, model_hem3.glb, and model_dcdc3.glb are placed in
+             * app/src/main/assets/, replace the placeholder block above with:
+             * =========================================================================
+             *
+             * const modelUrl = `https://appassets.androidplatform.net/assets/${encodeURIComponent(safeFileName)}`;
+             * gltfLoader.load(
+             *     modelUrl,
+             *     (gltf) => {
+             *         clearActiveModel();
+             *         const model = gltf.scene;
+             *
+             *         // Auto-center and normalize scale to fit the viewport cleanly
+             *         const box = new THREE.Box3().setFromObject(model);
+             *         const size = box.getSize(new THREE.Vector3());
+             *         const center = box.getCenter(new THREE.Vector3());
+             *         const maxDim = Math.max(size.x, size.y, size.z) || 1;
+             *         const scale = 2.2 / maxDim;
+             *         model.scale.setScalar(scale);
+             *         model.position.sub(center.multiplyScalar(scale));
+             *
+             *         activeModelRoot = model;
+             *         scene.add(activeModelRoot);
+             *         resetCamera();
+             *     },
+             *     undefined,
+             *     (error) => {
+             *         console.error('Failed to load GLB model:', safeFileName, error);
+             *         // Fallback to placeholder cube if the .glb asset is missing
+             *         clearActiveModel();
+             *         activeModelRoot = createPlaceholderCube();
+             *         scene.add(activeModelRoot);
+             *         resetCamera();
+             *     }
+             * );
+             */
+        }
+
+        // Expose globally so Android WebView.evaluateJavascript() can also call it directly
+        window.loadEquipmentModel = loadEquipmentModel;
+        window.resetCamera = resetCamera;
+
+        resetBtnEl.addEventListener('click', resetCamera);
+
+        // Handle resize / orientation changes
+        window.addEventListener('resize', () => {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        });
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Initialize from URL query params passed by Loto3DViewerScreen
+        const params = new URLSearchParams(window.location.search);
+        const initialModel = params.get('model') || 'model_hem2.glb';
+        const initialName = params.get('name') || '';
+        loadEquipmentModel(initialModel, initialName);
+        animate();
+    </script>
+</body>
+</html>

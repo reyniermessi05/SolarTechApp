@@ -73,6 +73,9 @@ dependencies {
     // AppCompat for Locale Delegate
     implementation("androidx.appcompat:appcompat:1.6.1")
 
+    // WebKit (WebViewAssetLoader for CORS-safe local 3D assets)
+    implementation("androidx.webkit:webkit:1.10.0")
+
     // Hilt
     implementation("com.google.dagger:hilt-android:2.50")
     ksp("com.google.dagger:hilt-android-compiler:2.50")
