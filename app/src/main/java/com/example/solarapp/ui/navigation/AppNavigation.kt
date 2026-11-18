@@ -66,6 +66,10 @@ fun AppNavigation() {
         currentRoute == Screen.Home.route -> androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.title_home)
         currentRoute == Screen.Troubleshooting.route -> Screen.Troubleshooting.title
         currentRoute == Screen.Loto.route -> Screen.Loto.title
+        currentRoute?.startsWith("loto3dViewer/") == true -> {
+            val equipmentName = Uri.decode(navBackStackEntry?.arguments?.getString("equipmentName") ?: "")
+            "$equipmentName - LOTO 3D"
+        }
         currentRoute == Screen.Jha.route -> Screen.Jha.title
         currentRoute == Screen.Plants.route -> Screen.Plants.title
         currentRoute == Screen.Report.route -> Screen.Report.title
