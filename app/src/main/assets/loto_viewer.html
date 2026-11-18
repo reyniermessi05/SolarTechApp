@@ -96,11 +96,11 @@
             // 2. OrbitControls (full 360° touch rotation, pinch-to-zoom, smooth damping)
             const controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
-            controls.dampingFactor = 0.06;
+            controls.dampingFactor = 0.08;
             controls.enableRotate = true;
-            controls.rotateSpeed = 0.85;
+            controls.rotateSpeed = 0.45;
             controls.enableZoom = true;
-            controls.zoomSpeed = 1.0;
+            controls.zoomSpeed = 0.55;
             controls.enablePan = true;
             controls.minDistance = 0.8;
             controls.maxDistance = 20;
@@ -418,16 +418,86 @@
                     root.add(meshPlane);
                 }
 
-                // Helper: lower protruding rectangular intake/exhaust hood on Z face
-                function addLowerHood(bayX, zSign) {
-                    const hoodW = 0.68;
-                    const hoodH = 0.44;
-                    const hoodD = 0.16;
-                    const hy = bodyBottomY + 0.36;
+                // Helper: 3D downward-angled / diagonal lower filter hood on Z face
+                function addLowerHood(bayX, zSign, centerY = bodyBottomY + 0.24) {
+                    const hoodW = 0.62;
+                    const topOut = 0.16;
+                    const botOut = 0.08;
+                    const hoodH = 0.24;
+                    const topY = hoodH / 2;
+                    const botY = -hoodH / 2;
                     const baseZ = zSign * (W / 2);
-                    addBox(hoodW, hoodH, hoodD, bayX, hy, baseZ + zSign * (hoodD / 2), matCabinet);
-                    addBox(hoodW - 0.08, hoodH - 0.10, 0.02, bayX, hy - 0.02, baseZ + zSign * (hoodD + 0.004), matVent);
-                    addBox(hoodW + 0.02, 0.025, hoodD + 0.02, bayX, hy + hoodH / 2 + 0.005, baseZ + zSign * (hoodD / 2), matSeam);
+
+                    const hoodGroup = new THREE.Group();
+                    hoodGroup.position.set(bayX, centerY, baseZ);
+
+                    const hoodMat = new THREE.MeshStandardMaterial({
+                        color: 0xD2D6DA,
+                        roughness: 0.65,
+                        metalness: 0.18,
+                        side: THREE.DoubleSide
+                    });
+                    const filterMat = new THREE.MeshStandardMaterial({
+                        color: 0x262422,
+                        roughness: 0.90,
+                        metalness: 0.10
+                    });
+
+                    // Top canopy roof (flat horizontal top extending to topOut)
+                    const topRoof = new THREE.Mesh(new THREE.BoxGeometry(hoodW, 0.014, topOut), hoodMat);
+                    topRoof.position.set(0, topY - 0.007, zSign * (topOut / 2));
+                    hoodGroup.add(topRoof);
+
+                    // Top front drip lip
+                    const topLip = new THREE.Mesh(new THREE.BoxGeometry(hoodW + 0.01, 0.020, 0.014), hoodMat);
+                    topLip.position.set(0, topY - 0.016, zSign * (topOut + 0.005));
+                    hoodGroup.add(topLip);
+
+                    // Bottom sill
+                    const botSill = new THREE.Mesh(new THREE.BoxGeometry(hoodW, 0.012, botOut), hoodMat);
+                    botSill.position.set(0, botY + 0.006, zSign * (botOut / 2));
+                    hoodGroup.add(botSill);
+
+                    // Trapezoidal side walls (wider at top: topOut, narrower at bottom: botOut)
+                    [-hoodW / 2, hoodW / 2].forEach((sx) => {
+                        const trapGeo = new THREE.BufferGeometry();
+                        const z0 = 0;
+                        const zTop = zSign * topOut;
+                        const zBot = zSign * botOut;
+                        const verts = new Float32Array([
+                            sx, topY, z0,
+                            sx, botY, z0,
+                            sx, botY, zBot,
+                            sx, topY, z0,
+                            sx, botY, zBot,
+                            sx, topY, zTop
+                        ]);
+                        trapGeo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+                        trapGeo.computeVertexNormals();
+                        hoodGroup.add(new THREE.Mesh(trapGeo, hoodMat));
+                    });
+
+                    // Angled dark recessed filter opening + thin dark frame
+                    const openH = hoodH - 0.028;
+                    const slopeAngle = Math.atan2(topOut - botOut, hoodH); // inward tilt from top to bottom
+                    const midZ = zSign * ((topOut + botOut) / 2 - 0.012);
+                    const filterPlane = new THREE.Mesh(
+                        new THREE.BoxGeometry(hoodW - 0.036, openH, 0.016),
+                        filterMat
+                    );
+                    filterPlane.position.set(0, -0.004, midZ);
+                    filterPlane.rotation.x = zSign * slopeAngle;
+                    hoodGroup.add(filterPlane);
+
+                    // Thin dark outer border & 2 subtle vertical retainer bars across filter opening
+                    [-hoodW * 0.28, hoodW * 0.28].forEach((bx) => {
+                        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.014, openH, 0.022), matLatch);
+                        bar.position.set(bx, -0.004, midZ + zSign * 0.004);
+                        bar.rotation.x = zSign * slopeAngle;
+                        hoodGroup.add(bar);
+                    });
+
+                    root.add(hoodGroup);
                 }
 
                 // =========================================================
@@ -593,41 +663,56 @@
                 }
 
                 // =========================================================
-                // 2. BACK FACE (-Z): 7 vertical bays mirroring structure
+                // 2. BACK FACE (-Z): 7 vertical bays from left (+X) to right (-X)
                 // =========================================================
                 const backZ = -W / 2;
+                const backPlenumZ = -plenumW / 2;
+                const split70Y = bodyTopY - bodyH * 0.70; // ~70% upper door / ~30% lower panel
+                const upper70LatchY = (bodyTopY + split70Y) / 2 - 0.12;
+                const lower30CenterY = (split70Y + bodyBottomY) / 2;
+
                 for (let i = 1; i < bayCount; i++) {
-                    const seamX = -L / 2 + i * bayW;
+                    const seamX = L / 2 - i * bayW;
                     addBox(0.012, bodyH - 0.02, 0.008, seamX, bodyCenterY, backZ - 0.004, matSeam);
                 }
 
                 for (let i = 0; i < bayCount; i++) {
-                    const bayX = -L / 2 + (i + 0.5) * bayW;
-                    const latchX = bayX - bayW * 0.36;
+                    // Left-to-right when facing the -Z back face from outside
+                    const bayX = L / 2 - (i + 0.5) * bayW;
+                    const latchX = bayX - bayW * 0.36; // right edge of door when viewing -Z face
 
-                    if (i === 3) {
-                        // Bay 4 (center): 3 stacked downward-angled louver hoods + horizontal slots + mesh grille
+                    if (i === 0) {
+                        // Bay 1 (leftmost): 50/50 split, no latches; solid top plenum (no vent)
+                        addBox(bayW - 0.03, 0.010, 0.008, bayX, bodyCenterY, backZ - 0.004, matSeam);
+                    } else if (i === 1) {
+                        // Bay 2: 50/50 split, no latches; top plenum louvered vent
+                        addBox(bayW - 0.03, 0.010, 0.008, bayX, bodyCenterY, backZ - 0.004, matSeam);
+                        addZLouverGrille(bayX, plenumCenterY, backPlenumZ, 0.58, 0.14, 3);
+                    } else if (i === 2) {
+                        // Bay 3: Single full-height panel, no latches; top plenum louvered vent
+                        addZLouverGrille(bayX, plenumCenterY, backPlenumZ, 0.58, 0.14, 3);
+                    } else if (i === 3) {
+                        // Bay 4 (center): 3 stacked louver hoods, horizontal slots, mesh grille; top plenum vent
                         addStackedLouverHoods(bayX, -1);
                         addCenterBayLowerVents(bayX, -1);
+                        addZLouverGrille(bayX, plenumCenterY, backPlenumZ, 0.58, 0.14, 3);
                     } else if (i === 4) {
-                        // Bay 5: Upper door + lower protruding hood
-                        addBox(bayW - 0.03, 0.010, 0.008, bayX, bodyCenterY, backZ - 0.004, matSeam);
-                        addZLatch(latchX, bodyCenterY + 0.35, -1);
-                        addLowerHood(bayX, -1);
-                    } else if (i === 0 || i === 1) {
-                        addZLatch(latchX, bodyCenterY, -1);
-                    } else {
-                        addBox(bayW - 0.03, 0.010, 0.008, bayX, bodyCenterY, backZ - 0.004, matSeam);
-                        addZLatch(latchX, bodyCenterY + 0.35, -1);
-                        addZLatch(latchX, bodyCenterY - 0.35, -1);
+                        // Bay 5: ~70% upper door with black latch + ~30% lower panel with diagonal filter hood; plenum vent
+                        addBox(bayW - 0.03, 0.010, 0.008, bayX, split70Y, backZ - 0.004, matSeam);
+                        addZLatch(latchX, upper70LatchY, -1);
+                        addLowerHood(bayX, -1, lower30CenterY);
+                        addZLouverGrille(bayX, plenumCenterY, backPlenumZ, 0.58, 0.14, 3);
+                    } else if (i === 5) {
+                        // Bay 6: ~70% upper door with black latch + ~30% flat lower panel (no latch); plenum vent
+                        addBox(bayW - 0.03, 0.010, 0.008, bayX, split70Y, backZ - 0.004, matSeam);
+                        addZLatch(latchX, upper70LatchY, -1);
+                        addZLouverGrille(bayX, plenumCenterY, backPlenumZ, 0.58, 0.14, 3);
+                    } else if (i === 6) {
+                        // Bay 7 (rightmost): ~70% upper door with black latch + ~30% flat lower panel; wider plenum vent
+                        addBox(bayW - 0.03, 0.010, 0.008, bayX, split70Y, backZ - 0.004, matSeam);
+                        addZLatch(latchX, upper70LatchY, -1);
+                        addZLouverGrille(bayX, plenumCenterY, backPlenumZ, 0.84, 0.14, 3);
                     }
-                }
-
-                // Top plenum (-Z): 6 dark louvered vent grilles
-                const backPlenumZ = -plenumW / 2;
-                for (let g = 0; g < 6; g++) {
-                    const gx = -L / 2 + (g + 0.5) * (L / 6);
-                    addZLouverGrille(gx, plenumCenterY, backPlenumZ, 0.76, 0.14, 3);
                 }
 
                 // =========================================================
