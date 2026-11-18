@@ -240,30 +240,182 @@
                     }
                 }
 
-                // Helper: 3 stacked horizontal angled louver hoods protruding outward on Z face
+                // Helper: procedural canvas texture for perforated mesh vent grille
+                function createMeshGrilleTexture() {
+                    const c = document.createElement('canvas');
+                    c.width = 128;
+                    c.height = 160;
+                    const ctx = c.getContext('2d');
+                    ctx.fillStyle = '#D2D6DA';
+                    ctx.fillRect(0, 0, c.width, c.height);
+                    ctx.fillStyle = '#1E2226';
+                    const stepX = 12;
+                    const stepY = 10;
+                    for (let row = 0; row < c.height / stepY; row++) {
+                        const offsetX = (row % 2) * (stepX / 2);
+                        for (let col = -1; col < c.width / stepX + 1; col++) {
+                            const cx = col * stepX + offsetX;
+                            const cy = row * stepY;
+                            ctx.beginPath();
+                            ctx.moveTo(cx, cy - 3.5);
+                            ctx.lineTo(cx + 4.5, cy);
+                            ctx.lineTo(cx, cy + 3.5);
+                            ctx.lineTo(cx - 4.5, cy);
+                            ctx.closePath();
+                            ctx.fill();
+                        }
+                    }
+                    const tex = new THREE.CanvasTexture(c);
+                    tex.encoding = THREE.sRGBEncoding;
+                    return tex;
+                }
+                const meshGrilleMat = new THREE.MeshStandardMaterial({
+                    map: createMeshGrilleTexture(),
+                    roughness: 0.75,
+                    metalness: 0.25
+                });
+
+                // Helper: procedural canvas texture for Bay 6 control panel labels & divider lines
+                function createControlPanelOverlayTexture() {
+                    const c = document.createElement('canvas');
+                    c.width = 512;
+                    c.height = 512;
+                    const ctx = c.getContext('2d');
+                    ctx.clearRect(0, 0, c.width, c.height);
+
+                    // Subtle vertical divider lines between top row controls
+                    ctx.strokeStyle = 'rgba(85, 90, 96, 0.35)';
+                    ctx.lineWidth = 2;
+                    [102, 204, 306, 408].forEach((lx) => {
+                        ctx.beginPath();
+                        ctx.moveTo(lx, 75);
+                        ctx.lineTo(lx, 170);
+                        ctx.stroke();
+                    });
+                    // Subtle vertical divider between middle/bottom columns
+                    ctx.beginPath();
+                    ctx.moveTo(256, 215);
+                    ctx.lineTo(256, 455);
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#383C42';
+                    ctx.font = 'bold 17px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+
+                    // Top row labels (5 elements)
+                    ctx.fillText('OFF   ON', 54, 72);
+                    ctx.fillText('AC', 153, 56);
+                    ctx.fillText('VOLTAGE', 153, 75);
+                    ctx.fillText('RUN', 255, 72);
+                    ctx.fillText('FAULT', 357, 56);
+                    ctx.fillText('WARNING', 357, 75);
+                    ctx.fillText('STOP', 456, 72);
+
+                    // Middle row labels (2 elements)
+                    ctx.fillText('DC', 175, 212);
+                    ctx.fillText('DISCONNECT', 175, 231);
+                    ctx.fillText('MV AC', 345, 212);
+                    ctx.fillText('DISCONNECT', 345, 231);
+
+                    // Bottom row labels (2 elements)
+                    ctx.fillText('DISPLAY', 175, 368);
+                    ctx.fillText('ETH', 345, 368);
+
+                    const tex = new THREE.CanvasTexture(c);
+                    tex.encoding = THREE.sRGBEncoding;
+                    return tex;
+                }
+
+                // Helper: 3 stacked downward-angled sheet-metal louver hoods + recessed baffles
                 function addStackedLouverHoods(bayX, zSign) {
                     const hoodW = 0.72;
-                    const hoodH = 0.22;
-                    const hoodD = 0.13;
+                    const hoodOut = 0.14;
+                    const hoodDrop = 0.13;
                     const baseZ = zSign * (W / 2);
                     const ys = [bodyCenterY + 0.44, bodyCenterY + 0.15, bodyCenterY - 0.14];
+                    const sideCheekMat = new THREE.MeshStandardMaterial({
+                        color: 0xD2D6DA,
+                        roughness: 0.65,
+                        metalness: 0.18,
+                        side: THREE.DoubleSide
+                    });
+
                     ys.forEach((hy) => {
                         const hoodGroup = new THREE.Group();
                         hoodGroup.position.set(bayX, hy, baseZ);
-                        // Outer hood shell
-                        const shell = new THREE.Mesh(new THREE.BoxGeometry(hoodW, hoodH, hoodD), matCabinet);
-                        shell.position.set(0, 0, zSign * (hoodD / 2));
-                        hoodGroup.add(shell);
-                        // Dark angled intake/exhaust opening
-                        const opening = new THREE.Mesh(new THREE.BoxGeometry(hoodW - 0.06, hoodH - 0.06, 0.02), matVent);
-                        opening.position.set(0, -0.01, zSign * (hoodD + 0.002));
-                        hoodGroup.add(opening);
-                        // Top sloped cap
-                        const cap = new THREE.Mesh(new THREE.BoxGeometry(hoodW + 0.02, 0.025, hoodD + 0.02), matSeam);
-                        cap.position.set(0, hoodH / 2 + 0.005, zSign * (hoodD / 2));
-                        hoodGroup.add(cap);
+
+                        // Outer mounting flange frame flush on door
+                        const flange = new THREE.Mesh(new THREE.BoxGeometry(hoodW + 0.05, 0.21, 0.006), matCabinet);
+                        flange.position.set(0, -0.02, zSign * 0.003);
+                        hoodGroup.add(flange);
+
+                        // Recessed dark cavity
+                        const cavityW = hoodW - 0.04;
+                        const cavityH = 0.15;
+                        const cavity = new THREE.Mesh(new THREE.BoxGeometry(cavityW, cavityH, 0.010), matVent);
+                        cavity.position.set(0, -0.025, zSign * 0.007);
+                        hoodGroup.add(cavity);
+
+                        // Evenly spaced vertical rectangular divider baffles inside cavity
+                        const baffleCount = 6;
+                        for (let b = 0; b < baffleCount; b++) {
+                            const bx = -cavityW / 2 + (b + 0.5) * (cavityW / baffleCount);
+                            const baffle = new THREE.Mesh(new THREE.BoxGeometry(0.032, cavityH - 0.015, 0.022), matCabinet);
+                            baffle.position.set(bx, -0.025, zSign * 0.016);
+                            hoodGroup.add(baffle);
+                        }
+
+                        // Downward-angled sheet-metal hood plate
+                        const slopeLen = Math.hypot(hoodOut, hoodDrop);
+                        const slopeAngle = Math.atan2(hoodOut, hoodDrop); // ~0.82 rad from vertical
+                        const hoodPlate = new THREE.Mesh(new THREE.BoxGeometry(hoodW, slopeLen, 0.008), matCabinet);
+                        hoodPlate.position.set(0, 0.055 - hoodDrop / 2, zSign * (hoodOut / 2 + 0.006));
+                        hoodPlate.rotation.x = zSign * (-slopeAngle);
+                        hoodGroup.add(hoodPlate);
+
+                        // Bottom horizontal drip lip
+                        const lip = new THREE.Mesh(new THREE.BoxGeometry(hoodW, 0.008, 0.024), matCabinet);
+                        lip.position.set(0, 0.055 - hoodDrop, zSign * (hoodOut + 0.012));
+                        hoodGroup.add(lip);
+
+                        // Thin triangular side flanges closing left and right sides of the hood
+                        [-hoodW / 2, hoodW / 2].forEach((sx) => {
+                            const triGeo = new THREE.BufferGeometry();
+                            const topY = 0.055;
+                            const botY = 0.055 - hoodDrop;
+                            const z0 = zSign * 0.006;
+                            const z1 = zSign * (hoodOut + 0.006);
+                            const verts = new Float32Array([
+                                sx, topY, z0,
+                                sx, botY, z0,
+                                sx, botY, z1
+                            ]);
+                            triGeo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+                            triGeo.computeVertexNormals();
+                            const cheek = new THREE.Mesh(triGeo, sideCheekMat);
+                            hoodGroup.add(cheek);
+                        });
+
                         root.add(hoodGroup);
                     });
+                }
+
+                // Helper: thin horizontal row of small rectangular slots + small perforated mesh grille below bottom hood
+                function addCenterBayLowerVents(bayX, zSign) {
+                    const baseZ = zSign * (W / 2);
+                    const slotY = bodyCenterY - 0.31;
+                    const slotCount = 6;
+                    const totalSlotW = 0.64;
+                    for (let s = 0; s < slotCount; s++) {
+                        const sx = bayX - totalSlotW / 2 + (s + 0.5) * (totalSlotW / slotCount);
+                        addBox(0.085, 0.018, 0.008, sx, slotY, baseZ + zSign * 0.004, matVent);
+                    }
+                    // Centered small rectangular dark perforated/mesh vent grille
+                    const meshPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.18), meshGrilleMat);
+                    meshPlane.position.set(bayX, bodyBottomY + 0.25, baseZ + zSign * 0.005);
+                    if (zSign < 0) meshPlane.rotation.y = Math.PI;
+                    root.add(meshPlane);
                 }
 
                 // Helper: lower protruding rectangular intake/exhaust hood on Z face
@@ -306,98 +458,127 @@
                         addZLatch(latchX, bodyCenterY + 0.35, +1);
                         addLowerHood(bayX, +1);
                     } else if (i === 3) {
-                        // Bay 4 (center): 3 stacked horizontal angled louver hoods + small dark vent grille below
+                        // Bay 4 (center): 3 stacked downward-angled louver hoods + horizontal slots + mesh grille
                         addStackedLouverHoods(bayX, +1);
-                        addZLouverGrille(bayX, bodyBottomY + 0.24, frontZ, 0.64, 0.26, 4);
+                        addCenterBayLowerVents(bayX, +1);
                     } else if (i === 4) {
                         // Bay 5: Full-height door
                         addZLatch(latchX, bodyCenterY, +1);
                     } else if (i === 5) {
-                        // Bay 6 (Main Control Cabinet): Full-height door + 3D control panel elements
-                        addZLatch(latchX, bodyCenterY, +1);
+                        // Bay 6 (Main Control Cabinet): Clean door + 3D control panel + lower-right black latch
+                        addZLatch(latchX, bodyCenterY - 0.38, +1);
 
-                        const panelZ = frontZ + 0.008;
-                        // Subtle dark bezel/plate behind control panel
-                        addBox(0.68, 0.96, 0.008, bayX - 0.03, bodyCenterY + 0.08, panelZ - 0.002, matSeam);
-                        addBox(0.66, 0.94, 0.008, bayX - 0.03, bodyCenterY + 0.08, panelZ, matCabinet);
+                        const panelZ = frontZ + 0.004;
+                        const panelCenterX = bayX - 0.02;
+                        const panelCenterY = bodyCenterY + 0.06;
 
-                        // Top row (y = bodyCenterY + 0.42): OFF/ON key switch, White LED, Green LED, Red LED, STOP button
-                        const topY = bodyCenterY + 0.42;
-                        const topXs = [bayX - 0.26, bayX - 0.14, bayX - 0.04, bayX + 0.06, bayX + 0.19];
+                        // Crisp canvas overlay for control labels & subtle divider lines
+                        const overlayMat = new THREE.MeshBasicMaterial({
+                            map: createControlPanelOverlayTexture(),
+                            transparent: true,
+                            depthWrite: false
+                        });
+                        const overlayPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.66, 0.66), overlayMat);
+                        overlayPlane.position.set(panelCenterX, panelCenterY, panelZ + 0.002);
+                        root.add(overlayPlane);
 
-                        // OFF/ON key switch (brass collar + black key)
-                        const keyBase = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.024, 16), matBrass);
+                        // Top row (5 elements): OFF/ON key switch, AC VOLTAGE, RUN, FAULT/WARNING, STOP
+                        const topY = panelCenterY + 0.16;
+                        const topXs = [
+                            panelCenterX - 0.26,
+                            panelCenterX - 0.132,
+                            panelCenterX - 0.002,
+                            panelCenterX + 0.130,
+                            panelCenterX + 0.258
+                        ];
+
+                        // 1. OFF/ON metallic/brass key switch
+                        const keyBase = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.022, 18), matBrass);
                         keyBase.rotation.x = Math.PI / 2;
-                        keyBase.position.set(topXs[0], topY, panelZ + 0.012);
+                        keyBase.position.set(topXs[0], topY, panelZ + 0.011);
                         root.add(keyBase);
-                        addBox(0.012, 0.038, 0.025, topXs[0], topY, panelZ + 0.028, matLatch);
+                        addBox(0.010, 0.032, 0.022, topXs[0], topY, panelZ + 0.025, matLatch);
 
-                        // White LED (AC VOLTAGE), Green LED (RUN), Red LED (FAULT/WARNING)
-                        const ledMats = [matLedWhite, matLedGreen, matLedRed];
-                        for (let l = 0; l < 3; l++) {
+                        // 2. AC VOLTAGE white pilot light
+                        const whiteBezel = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.020, 0.012, 16), matSkid);
+                        whiteBezel.rotation.x = Math.PI / 2;
+                        whiteBezel.position.set(topXs[1], topY, panelZ + 0.006);
+                        root.add(whiteBezel);
+                        const whiteLens = new THREE.Mesh(new THREE.SphereGeometry(0.015, 14, 14), matLedWhite);
+                        whiteLens.position.set(topXs[1], topY, panelZ + 0.013);
+                        root.add(whiteLens);
+
+                        // 3. RUN glowing green indicator & 4. FAULT/WARNING glowing red indicator
+                        [matLedGreen, matLedRed].forEach((ledMat, idx) => {
+                            const lx = topXs[idx + 2];
                             const bezel = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.020, 0.012, 16), matLatch);
                             bezel.rotation.x = Math.PI / 2;
-                            bezel.position.set(topXs[l + 1], topY, panelZ + 0.006);
+                            bezel.position.set(lx, topY, panelZ + 0.006);
                             root.add(bezel);
 
-                            const lens = new THREE.Mesh(new THREE.SphereGeometry(0.014, 12, 12), ledMats[l]);
-                            lens.position.set(topXs[l + 1], topY, panelZ + 0.014);
+                            const lens = new THREE.Mesh(new THREE.SphereGeometry(0.014, 14, 14), ledMat);
+                            lens.position.set(lx, topY, panelZ + 0.013);
                             root.add(lens);
-                        }
+                        });
 
-                        // Yellow-collar Red mushroom STOP button
-                        const stopCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.014, 20), matYellow);
+                        // 5. STOP emergency button (yellow circular collar with red mushroom cap)
+                        const stopCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.016, 22), matYellow);
                         stopCollar.rotation.x = Math.PI / 2;
-                        stopCollar.position.set(topXs[4], topY, panelZ + 0.007);
+                        stopCollar.position.set(topXs[4], topY, panelZ + 0.008);
                         root.add(stopCollar);
-
-                        const stopStem = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.025, 16), matLatch);
+                        const stopStem = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.020, 16), matLatch);
                         stopStem.rotation.x = Math.PI / 2;
-                        stopStem.position.set(topXs[4], topY, panelZ + 0.020);
+                        stopStem.position.set(topXs[4], topY, panelZ + 0.018);
                         root.add(stopStem);
-
-                        const stopCap = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.026, 0.022, 20), matRed);
+                        const stopCap = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.023, 0.020, 20), matRed);
                         stopCap.rotation.x = Math.PI / 2;
-                        stopCap.position.set(topXs[4], topY, panelZ + 0.036);
+                        stopCap.position.set(topXs[4], topY, panelZ + 0.032);
                         root.add(stopCap);
 
-                        // Middle row (y = bodyCenterY + 0.06): DC DISCONNECT & MV AC DISCONNECT
-                        const midY = bodyCenterY + 0.06;
-                        const dcX = bayX - 0.17;
-                        const mvX = bayX + 0.11;
+                        // Middle row (2 elements): DC DISCONNECT & MV AC DISCONNECT
+                        const midY = panelCenterY - 0.03;
+                        const dcX = panelCenterX - 0.105;
+                        const mvX = panelCenterX + 0.115;
 
-                        // DC DISCONNECT (yellow ring with black center rotary handle)
-                        const dcRing = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.016, 24), matYellow);
-                        dcRing.rotation.x = Math.PI / 2;
-                        dcRing.position.set(dcX, midY, panelZ + 0.008);
-                        root.add(dcRing);
-                        const dcCenter = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.022, 20), matLatch);
-                        dcCenter.rotation.x = Math.PI / 2;
-                        dcCenter.position.set(dcX, midY, panelZ + 0.015);
-                        root.add(dcCenter);
-                        addBox(0.026, 0.11, 0.026, dcX, midY, panelZ + 0.032, matLatch);
+                        // DC DISCONNECT (yellow circular bezel with large black round center button)
+                        const dcBezel = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, 0.018, 24), matYellow);
+                        dcBezel.rotation.x = Math.PI / 2;
+                        dcBezel.position.set(dcX, midY, panelZ + 0.009);
+                        root.add(dcBezel);
+                        const dcButton = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.034, 0.026, 22), matLatch);
+                        dcButton.rotation.x = Math.PI / 2;
+                        dcButton.position.set(dcX, midY, panelZ + 0.020);
+                        root.add(dcButton);
 
-                        // MV AC DISCONNECT (yellow square base with red rotary handle)
-                        addBox(0.145, 0.145, 0.016, mvX, midY, panelZ + 0.008, matYellow);
-                        const mvHub = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.022, 16), matRed);
+                        // MV AC DISCONNECT (yellow square base with black outer border and prominent red rotary handle)
+                        addBox(0.092, 0.092, 0.012, mvX, midY, panelZ + 0.006, matLatch);
+                        addBox(0.080, 0.080, 0.016, mvX, midY, panelZ + 0.008, matYellow);
+                        const mvHub = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.018, 16), matRed);
                         mvHub.rotation.x = Math.PI / 2;
-                        mvHub.position.set(mvX, midY, panelZ + 0.016);
+                        mvHub.position.set(mvX, midY, panelZ + 0.018);
                         root.add(mvHub);
-                        addBox(0.105, 0.026, 0.026, mvX, midY, panelZ + 0.032, matRed);
+                        const mvHandle = addBox(0.022, 0.068, 0.022, mvX, midY - 0.004, panelZ + 0.028, matRed);
+                        mvHandle.rotation.z = 0.25;
 
-                        // Bottom row (y = bodyCenterY - 0.26): 2 small black circular ports (DISPLAY and ETH)
-                        const botY = bodyCenterY - 0.26;
-                        [bayX - 0.12, bayX + 0.06].forEach((px) => {
-                            const portRing = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.016, 16), matSkid);
-                            portRing.rotation.x = Math.PI / 2;
-                            portRing.position.set(px, botY, panelZ + 0.008);
-                            root.add(portRing);
+                        // Bottom row (2 elements): DISPLAY (black capped port) & ETH (unplugged metallic/black port)
+                        const botY = panelCenterY - 0.21;
 
-                            const portCore = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.020, 0.020, 16), matLatch);
-                            portCore.rotation.x = Math.PI / 2;
-                            portCore.position.set(px, botY, panelZ + 0.010);
-                            root.add(portCore);
-                        });
+                        // DISPLAY port (black circular capped port)
+                        const dispBody = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.018, 18), matLatch);
+                        dispBody.rotation.x = Math.PI / 2;
+                        dispBody.position.set(dcX, botY, panelZ + 0.009);
+                        root.add(dispBody);
+                        addBox(0.016, 0.014, 0.010, dcX, botY + 0.024, panelZ + 0.009, matLatch);
+
+                        // ETH port (small circular metallic/black port, unplugged - no cable)
+                        const ethRing = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.014, 18), matSkid);
+                        ethRing.rotation.x = Math.PI / 2;
+                        ethRing.position.set(mvX, botY, panelZ + 0.007);
+                        root.add(ethRing);
+                        const ethCore = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.018, 16), matLatch);
+                        ethCore.rotation.x = Math.PI / 2;
+                        ethCore.position.set(mvX, botY, panelZ + 0.009);
+                        root.add(ethCore);
                     } else if (i === 6) {
                         // Bay 7 (right): Full-height door
                         addZLatch(latchX, bodyCenterY, +1);
@@ -425,8 +606,9 @@
                     const latchX = bayX - bayW * 0.36;
 
                     if (i === 3) {
-                        // Bay 4 (center): 3 stacked horizontal angled louver hoods
+                        // Bay 4 (center): 3 stacked downward-angled louver hoods + horizontal slots + mesh grille
                         addStackedLouverHoods(bayX, -1);
+                        addCenterBayLowerVents(bayX, -1);
                     } else if (i === 4) {
                         // Bay 5: Upper door + lower protruding hood
                         addBox(bayW - 0.03, 0.010, 0.008, bayX, bodyCenterY, backZ - 0.004, matSeam);
@@ -465,19 +647,34 @@
                 for (let c = 0; c < colCount; c++) {
                     const colZ = -W / 2 + (c + 0.5) * colW;
 
-                    // Black door latches on upper and lower doors
-                    addBox(0.022, 0.14, 0.030, leftX - 0.012, bodyCenterY + 0.35, colZ + colW * 0.35, matLatch);
-                    addBox(0.022, 0.14, 0.030, leftX - 0.012, bodyCenterY - 0.35, colZ + colW * 0.35, matLatch);
+                    // Black door latches on right edge of each upper and lower door
+                    addBox(0.022, 0.14, 0.030, leftX - 0.012, bodyCenterY + 0.25, colZ + colW * 0.36, matLatch);
+                    addBox(0.022, 0.14, 0.030, leftX - 0.012, bodyCenterY - 0.35, colZ + colW * 0.36, matLatch);
 
-                    // 2 gray rotary disconnect handles per upper door (6 total, 2 rows of 3)
-                    [bodyCenterY + 0.50, bodyCenterY + 0.24].forEach((hy) => {
-                        const basePlate = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.016, 16), matSeam);
+                    // 2 realistic L-shaped / curved pistol-grip gray rotary disconnect handles per upper door
+                    [bodyCenterY + 0.48, bodyCenterY + 0.18].forEach((hy) => {
+                        const hz = colZ - 0.02;
+                        // Circular mounting base
+                        const basePlate = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.045, 0.018, 18), matGrayHandle);
                         basePlate.rotation.z = Math.PI / 2;
-                        basePlate.position.set(leftX - 0.008, hy, colZ - 0.04);
+                        basePlate.position.set(leftX - 0.009, hy, hz);
                         root.add(basePlate);
 
-                        const handleBar = addBox(0.028, 0.095, 0.026, leftX - 0.022, hy, colZ - 0.04, matGrayHandle);
-                        handleBar.rotation.x = Math.PI / 8;
+                        // Curved pistol-grip handle projecting outward (-X) and curving downward (-Y)
+                        const gripCurve = new THREE.CatmullRomCurve3([
+                            new THREE.Vector3(leftX - 0.014, hy, hz),
+                            new THREE.Vector3(leftX - 0.055, hy - 0.005, hz),
+                            new THREE.Vector3(leftX - 0.072, hy - 0.045, hz),
+                            new THREE.Vector3(leftX - 0.070, hy - 0.115, hz)
+                        ]);
+                        const gripGeo = new THREE.TubeGeometry(gripCurve, 14, 0.018, 12, false);
+                        const gripMesh = new THREE.Mesh(gripGeo, matGrayHandle);
+                        root.add(gripMesh);
+
+                        // Rounded tip cap at bottom of pistol grip
+                        const gripTip = new THREE.Mesh(new THREE.SphereGeometry(0.018, 12, 12), matGrayHandle);
+                        gripTip.position.set(leftX - 0.070, hy - 0.115, hz);
+                        root.add(gripTip);
                     });
                 }
 
