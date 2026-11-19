@@ -205,13 +205,12 @@ private val HEM_GEN2_STATUSES = listOf(
 
 private fun getGreenStatusesForCabinet(cabinetId: String): List<LotoStatusOption> {
     val greenCodes = when (cabinetId) {
-        "1" -> listOf("2", "5A")
         "2", "12", "25" -> emptyList()
-        "3", "4", "5", "7", "8" -> listOf("2", "3B", "5A")
-        "6", "24" -> listOf("2", "5A")
-        "9", "10", "11", "19", "20", "21", "22", "23" -> listOf("2", "3B", "4", "5A")
-        "13", "14" -> listOf("2", "4")
-        "15", "16", "17", "18" -> listOf("2", "3B", "4")
+        "1", "6", "24" -> listOf("2", "5A")
+        "7", "8" -> listOf("2", "3B", "5A")
+        "13", "14", "16" -> listOf("2", "4")
+        "3", "4", "5", "9", "10", "11", "15", "17", "18", "19", "20", "21", "22", "23" ->
+            listOf("2", "3B", "4", "5A")
         else -> emptyList()
     }
     return HEM_GEN2_STATUSES.filter { it.code in greenCodes }
