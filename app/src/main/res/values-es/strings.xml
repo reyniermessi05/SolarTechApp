@@ -18,4 +18,12 @@
     <string name="loto_continue_button">Continuar</string>
     <string name="loto_cancel_button">Cancelar</string>
     <string name="loto_reset_view">Restablecer vista 3D</string>
+    <string name="loto_select_status">Seleccionar Estado</string>
+    <string name="loto_select_status_title">Seleccionar Estado LOTOTO</string>
+    <string name="loto_clear_status">Restablecer Estado (Vista Normal)</string>
+    <string name="loto_type_of_activities">Tipo de actividades</string>
+    <string name="loto_legend_green">Área desenergizada, trabajo permitido</string>
+    <string name="loto_legend_red">Área energizada, trabajo no permitido</string>
+    <string name="loto_legend_yellow">Área energizada, solo comprobaciones con EPP</string>
+    <string name="loto_legend_purple">Área energizada, trabajo solo con EPP</string>
 </resources>
