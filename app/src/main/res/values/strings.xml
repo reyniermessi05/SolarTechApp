@@ -13,4 +13,8 @@
     <string name="loto_apply_question">Do you want to apply LOTO?</string>
     <string name="loto_apply_button">Apply LOTO</string>
     <string name="loto_back_button">Back</string>
+    <string name="loto_grid_danger_title">DANGER</string>
+    <string name="loto_grid_danger_message">DANGER: This cabinet can only be accessed if the substation is open.\n\nDo you wish to continue?</string>
+    <string name="loto_continue_button">Continue</string>
+    <string name="loto_cancel_button">Cancel</string>
 </resources>
