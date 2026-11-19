@@ -134,6 +134,19 @@
             const equipmentGroup = new THREE.Group();
             scene.add(equipmentGroup);
 
+            // Interactive cabinet door registry & selection state
+            let clickableDoors = [];
+            let selectedDoor = null;
+            let camAnim = null;
+
+            function clearDoorHighlight() {
+                if (selectedDoor && selectedDoor.material && selectedDoor.material.emissive) {
+                    selectedDoor.material.emissive.setHex(0x000000);
+                    selectedDoor.material.emissiveIntensity = 0;
+                }
+                selectedDoor = null;
+            }
+
             // Helper: build the placeholder cube with distinct face shading and crisp edges
             function createPlaceholderCube() {
                 const group = new THREE.Group();
@@ -195,15 +208,32 @@
                 const matYellow = new THREE.MeshStandardMaterial({ color: 0xFBC02D, roughness: 0.40, metalness: 0.15 });
                 const matRed = new THREE.MeshStandardMaterial({ color: 0xD32F2F, roughness: 0.35, metalness: 0.15 });
                 const matBrass = new THREE.MeshStandardMaterial({ color: 0xC5A049, roughness: 0.35, metalness: 0.75 });
-                const matGrayHandle = new THREE.MeshStandardMaterial({ color: 0x6E757C, roughness: 0.45, metalness: 0.40 });
+                const matGrayHandle = new THREE.MeshStandardMaterial({ color: 0x9AA0A6, roughness: 0.42, metalness: 0.35 });
+                const matHandleStripe = new THREE.MeshStandardMaterial({ color: 0xC5CBD1, roughness: 0.35, metalness: 0.20 });
                 const matLedWhite = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, emissive: 0xFFFFFF, emissiveIntensity: 0.55, roughness: 0.2 });
                 const matLedGreen = new THREE.MeshStandardMaterial({ color: 0x4CAF50, emissive: 0x2E7D32, emissiveIntensity: 0.65, roughness: 0.2 });
                 const matLedRed = new THREE.MeshStandardMaterial({ color: 0xFF5252, emissive: 0xD32F2F, emissiveIntensity: 0.65, roughness: 0.2 });
+                const matDcLedGreen = new THREE.MeshStandardMaterial({ color: 0x16A34A, emissive: 0x15803D, emissiveIntensity: 0.45, roughness: 0.15, metalness: 0.1 });
+                const matDcLedOff = new THREE.MeshStandardMaterial({ color: 0x374151, roughness: 0.35, metalness: 0.15 });
 
                 function addBox(w, h, d, x, y, z, mat, parent = root) {
                     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
                     mesh.position.set(x, y, z);
                     parent.add(mesh);
+                    return mesh;
+                }
+
+                function addClickableDoor(w, h, d, x, y, z, meta) {
+                    const doorMat = new THREE.MeshStandardMaterial({
+                        color: 0xD2D6DA,
+                        roughness: 0.65,
+                        metalness: 0.18
+                    });
+                    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), doorMat);
+                    mesh.position.set(x, y, z);
+                    mesh.userData = Object.assign({ isDoor: true }, meta);
+                    root.add(mesh);
+                    clickableDoors.push(mesh);
                     return mesh;
                 }
 
@@ -519,9 +549,25 @@
                 const lower32CenterY = (split68Y + bodyBottomY) / 2;
                 const rightSideLatchY = bodyBottomY + bodyH * 0.435; // ~43.5% up from bottom for Bays 5, 6, 7
 
+                const frontBayMeta = [
+                    { cabinetId: 'front_power_1', nameEn: 'Power Module Cabinet', nameEs: 'Gabinete de Módulos de Potencia' },
+                    { cabinetId: 'front_power_2', nameEn: 'Power Module Cabinet', nameEs: 'Gabinete de Módulos de Potencia' },
+                    { cabinetId: 'front_filter_3', nameEn: 'Ventilation / Filter Cabinet', nameEs: 'Gabinete de Ventilación / Filtros' },
+                    { cabinetId: 'front_vent_4', nameEn: 'Ventilation / Filter Cabinet', nameEs: 'Gabinete de Ventilación / Filtros' },
+                    { cabinetId: 'front_power_5', nameEn: 'Power Module Cabinet', nameEs: 'Gabinete de Módulos de Potencia' },
+                    { cabinetId: 'front_main_control', nameEn: 'Main Control Cabinet', nameEs: 'Gabinete de Control Principal' },
+                    { cabinetId: 'front_mv_7', nameEn: 'MV Switchgear Cabinet', nameEs: 'Gabinete de Media Tensión (MT)' }
+                ];
+
                 for (let i = 0; i < bayCount; i++) {
                     const bayX = -L / 2 + (i + 0.5) * bayW;
                     const latchX = bayX + bayW * 0.36;
+                    addClickableDoor(bayW - 0.016, bodyH - 0.02, 0.004, bayX, bodyCenterY, frontZ + 0.001, {
+                        ...frontBayMeta[i],
+                        focusPoint: [bayX, bodyCenterY, frontZ],
+                        focusNormal: [0, 0.08, 1],
+                        focusDist: 2.35
+                    });
 
                     if (i === 0 || i === 1) {
                         // Bays 1-2: ~68% upper door with centered latch + ~32% lower panel (no lower latch)
@@ -681,10 +727,26 @@
                     addBox(0.012, bodyH - 0.02, 0.008, seamX, bodyCenterY, backZ - 0.004, matSeam);
                 }
 
+                const backBayMeta = [
+                    { cabinetId: 'back_mv_1', nameEn: 'MV Switchgear Cabinet', nameEs: 'Gabinete de Media Tensión (MT)' },
+                    { cabinetId: 'back_power_2', nameEn: 'Power Module Cabinet', nameEs: 'Gabinete de Módulos de Potencia' },
+                    { cabinetId: 'back_power_3', nameEn: 'Power Module Cabinet', nameEs: 'Gabinete de Módulos de Potencia' },
+                    { cabinetId: 'back_vent_4', nameEn: 'Ventilation / Filter Cabinet', nameEs: 'Gabinete de Ventilación / Filtros' },
+                    { cabinetId: 'back_filter_5', nameEn: 'Ventilation / Filter Cabinet', nameEs: 'Gabinete de Ventilación / Filtros' },
+                    { cabinetId: 'back_power_6', nameEn: 'Power Module Cabinet', nameEs: 'Gabinete de Módulos de Potencia' },
+                    { cabinetId: 'back_power_7', nameEn: 'Power Module Cabinet', nameEs: 'Gabinete de Módulos de Potencia' }
+                ];
+
                 for (let i = 0; i < bayCount; i++) {
                     // Left-to-right when facing the -Z back face from outside
                     const bayX = L / 2 - (i + 0.5) * bayW;
                     const latchX = bayX - bayW * 0.36; // right edge of door when viewing -Z face
+                    addClickableDoor(bayW - 0.016, bodyH - 0.02, 0.004, bayX, bodyCenterY, backZ - 0.001, {
+                        ...backBayMeta[i],
+                        focusPoint: [bayX, bodyCenterY, backZ],
+                        focusNormal: [0, 0.08, -1],
+                        focusDist: 2.35
+                    });
 
                     if (i === 0) {
                         // Bay 1 (leftmost): 50/50 split, no latches; solid top plenum (no vent)
@@ -740,35 +802,71 @@
 
                 for (let c = 0; c < colCount; c++) {
                     const colZ = -W / 2 + (c + 0.5) * colW;
+                    const doorNum = c + 1;
+                    addClickableDoor(0.004, bodyH - 0.02, colW - 0.016, leftX - 0.001, bodyCenterY, colZ, {
+                        cabinetId: 'dc_cabinet_' + doorNum,
+                        nameEn: 'DC Disconnect Cabinet (Door ' + doorNum + ')',
+                        nameEs: 'Gabinete de Desconectivos DC (Puerta ' + doorNum + ')',
+                        focusPoint: [leftX, bodyCenterY + 0.10, colZ],
+                        focusNormal: [-1, 0.06, 0],
+                        focusDist: 2.35
+                    });
 
                     // Black door latch on right edge of each upper door only (lower panels are clean/flat)
                     addBox(0.022, 0.14, 0.030, leftX - 0.012, leftLatchY, colZ + colW * 0.36, matLatch);
 
-                    // 2 larger, clearly protruding curved pistol-grip gray rotary disconnect handles per upper door
+                    // 2 chunky industrial rotary pistol-grip handles per upper door
                     [topHandleY, botHandleY].forEach((hy) => {
                         const hz = colZ - 0.02;
-                        // Circular mounting base
-                        const basePlate = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.052, 0.022, 18), matGrayHandle);
+
+                        // Thick circular mounting base
+                        const basePlate = new THREE.Mesh(new THREE.CylinderGeometry(0.056, 0.060, 0.024, 22), matGrayHandle);
                         basePlate.rotation.z = Math.PI / 2;
-                        basePlate.position.set(leftX - 0.011, hy, hz);
+                        basePlate.position.set(leftX - 0.012, hy, hz);
                         root.add(basePlate);
 
-                        // Curved pistol-grip handle projecting outward (-X) and curving downward (-Y)
-                        const gripCurve = new THREE.CatmullRomCurve3([
-                            new THREE.Vector3(leftX - 0.016, hy, hz),
-                            new THREE.Vector3(leftX - 0.064, hy - 0.006, hz),
-                            new THREE.Vector3(leftX - 0.084, hy - 0.052, hz),
-                            new THREE.Vector3(leftX - 0.082, hy - 0.132, hz)
-                        ]);
-                        const gripGeo = new THREE.TubeGeometry(gripCurve, 14, 0.021, 12, false);
-                        const gripMesh = new THREE.Mesh(gripGeo, matGrayHandle);
-                        root.add(gripMesh);
+                        // Short horizontal neck protruding outward (-X)
+                        const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.028, 0.048, 16), matGrayHandle);
+                        neck.rotation.z = Math.PI / 2;
+                        neck.position.set(leftX - 0.042, hy, hz);
+                        root.add(neck);
 
-                        // Rounded tip cap at bottom of pistol grip
-                        const gripTip = new THREE.Mesh(new THREE.SphereGeometry(0.021, 12, 12), matGrayHandle);
-                        gripTip.position.set(leftX - 0.082, hy - 0.132, hz);
+                        // Rounded elbow joint
+                        const elbow = new THREE.Mesh(new THREE.SphereGeometry(0.027, 14, 14), matGrayHandle);
+                        elbow.position.set(leftX - 0.064, hy, hz);
+                        root.add(elbow);
+
+                        // Thick, solid, slightly tapered vertical grip pointing straight down (-Y)
+                        const gripLen = 0.145;
+                        const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.020, gripLen, 16), matGrayHandle);
+                        grip.position.set(leftX - 0.064, hy - gripLen / 2, hz);
+                        root.add(grip);
+
+                        // Subtle light-gray front accent stripe on grip face
+                        addBox(0.010, gripLen * 0.72, 0.014, leftX - 0.086, hy - gripLen * 0.45, hz, matHandleStripe);
+
+                        // Rounded bottom tip
+                        const gripTip = new THREE.Mesh(new THREE.SphereGeometry(0.020, 12, 12), matGrayHandle);
+                        gripTip.position.set(leftX - 0.064, hy - gripLen, hz);
                         root.add(gripTip);
                     });
+
+                    // 2 small circular pilot LEDs on center upper door (c === 1) to the left of upper handle
+                    if (c === 1) {
+                        const ledY = topHandleY + 0.005;
+                        const ledZs = [colZ - 0.175, colZ - 0.125]; // left: green, right: dark gray/off
+                        [matDcLedGreen, matDcLedOff].forEach((ledMat, idx) => {
+                            const lz = ledZs[idx];
+                            const bezel = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.010, 16), matLatch);
+                            bezel.rotation.z = Math.PI / 2;
+                            bezel.position.set(leftX - 0.005, ledY, lz);
+                            root.add(bezel);
+
+                            const lens = new THREE.Mesh(new THREE.SphereGeometry(0.013, 14, 14), ledMat);
+                            lens.position.set(leftX - 0.010, ledY, lz);
+                            root.add(lens);
+                        });
+                    }
                 }
 
                 // Top plenum (-X): 1 centered horizontal louvered vent grille
@@ -783,6 +881,14 @@
                 // 4. RIGHT END FACE (+X, MV End): 2 full-height double doors
                 // =========================================================
                 const rightX = L / 2;
+                addClickableDoor(0.004, bodyH - 0.02, W - 0.02, rightX + 0.001, bodyCenterY, 0, {
+                    cabinetId: 'mv_switchgear_cabinet',
+                    nameEn: 'MV Switchgear Cabinet',
+                    nameEs: 'Gabinete de Media Tensión (MT)',
+                    focusPoint: [rightX, bodyCenterY, 0],
+                    focusNormal: [1, 0.08, 0],
+                    focusDist: 2.85
+                });
                 // Center vertical seam separating the 2 full-height double doors
                 addBox(0.008, bodyH - 0.02, 0.014, rightX + 0.004, bodyCenterY, 0, matSeam);
                 // Centered black handles/latches
@@ -794,10 +900,30 @@
             }
 
             function clearEquipmentGroup() {
+                clearDoorHighlight();
+                clickableDoors = [];
+                camAnim = null;
                 while (equipmentGroup.children.length > 0) {
                     const child = equipmentGroup.children[0];
                     equipmentGroup.remove(child);
                 }
+            }
+
+            function getHemGen2OverviewPose() {
+                const dir = new THREE.Vector3(0.68, 0.38, 0.82).normalize();
+                const fovRad = THREE.MathUtils.degToRad(camera.fov);
+                const hFovRad = 2 * Math.atan(Math.tan(fovRad / 2) * camera.aspect);
+
+                const halfWidth = 3.6;
+                const halfHeight = 1.4;
+                const distForWidth = halfWidth / Math.tan(hFovRad / 2);
+                const distForHeight = halfHeight / Math.tan(fovRad / 2);
+                const distance = Math.max(distForWidth, distForHeight, 6.8) * 1.08;
+
+                return {
+                    position: dir.multiplyScalar(distance),
+                    target: new THREE.Vector3(0, 0, 0)
+                };
             }
 
             /**
@@ -805,19 +931,9 @@
              * 6.40m HEM Gen. 2 inverter fits cleanly on screen regardless of aspect ratio.
              */
             function frameHemGen2Camera() {
-                controls.target.set(0, 0, 0);
-                const dir = new THREE.Vector3(0.68, 0.38, 0.82).normalize();
-                const fovRad = THREE.MathUtils.degToRad(camera.fov);
-                const hFovRad = 2 * Math.atan(Math.tan(fovRad / 2) * camera.aspect);
-
-                // Bounding half-extents projected roughly onto view plane
-                const halfWidth = 3.6;
-                const halfHeight = 1.4;
-                const distForWidth = halfWidth / Math.tan(hFovRad / 2);
-                const distForHeight = halfHeight / Math.tan(fovRad / 2);
-                const distance = Math.max(distForWidth, distForHeight, 6.8) * 1.08;
-
-                camera.position.copy(dir.multiplyScalar(distance));
+                const pose = getHemGen2OverviewPose();
+                controls.target.copy(pose.target);
+                camera.position.copy(pose.position);
                 controls.minDistance = 0.7;
                 controls.maxDistance = 20;
                 controls.update();
@@ -830,6 +946,121 @@
                 controls.maxDistance = 15;
                 controls.update();
             }
+
+            function startCameraAnimation(toPos, toTarget, durationMs = 520) {
+                camAnim = {
+                    startPos: camera.position.clone(),
+                    startTarget: controls.target.clone(),
+                    endPos: toPos.clone(),
+                    endTarget: toTarget.clone(),
+                    startTime: performance.now(),
+                    duration: durationMs
+                };
+            }
+
+            /**
+             * Smoothly animates the camera to face and zoom into the selected cabinet,
+             * shifting the target slightly right so the cabinet frames cleanly on the
+             * left ~56% of the screen next to the right-side LOTO info panel.
+             */
+            function focusOnCabinet(doorMesh) {
+                const meta = doorMesh.userData;
+                if (!meta || !meta.focusPoint || !meta.focusNormal) return;
+
+                const focusPt = new THREE.Vector3().fromArray(meta.focusPoint);
+                const normal = new THREE.Vector3().fromArray(meta.focusNormal).normalize();
+                const fovRad = THREE.MathUtils.degToRad(camera.fov);
+                const hFovRad = 2 * Math.atan(Math.tan(fovRad / 2) * camera.aspect);
+
+                // Ensure enough distance in narrow/portrait viewports to see the whole cabinet
+                const baseDist = meta.focusDist || 2.4;
+                const dist = Math.max(baseDist, 1.35 / Math.tan(hFovRad / 2));
+
+                // Right vector when looking from normal toward focusPt
+                const up = new THREE.Vector3(0, 1, 0);
+                const forward = normal.clone().negate();
+                const rightVec = new THREE.Vector3().crossVectors(forward, up).normalize();
+
+                // Shift camera & target right by ~24% of visible horizontal span so cabinet sits on the left
+                const halfSpanX = dist * Math.tan(hFovRad / 2);
+                const shiftRight = rightVec.multiplyScalar(halfSpanX * 0.42);
+
+                const endTarget = focusPt.clone().add(shiftRight);
+                const endPos = endTarget.clone().add(normal.clone().multiplyScalar(dist));
+
+                startCameraAnimation(endPos, endTarget, 520);
+            }
+
+            window.resetCameraView = function () {
+                clearDoorHighlight();
+                if (currentModelFile === 'model_hem2.glb') {
+                    const pose = getHemGen2OverviewPose();
+                    startCameraAnimation(pose.position, pose.target, 520);
+                } else {
+                    startCameraAnimation(
+                        new THREE.Vector3(2.8, 2.2, 3.2),
+                        new THREE.Vector3(0, 0, 0),
+                        450
+                    );
+                }
+            };
+
+            // Raycaster tap detection (distinguishes short tap from drag/orbit)
+            const raycaster = new THREE.Raycaster();
+            const pointerNdc = new THREE.Vector2();
+            let tapCandidate = null;
+
+            renderer.domElement.addEventListener('pointerdown', function (e) {
+                camAnim = null; // allow immediate user control
+                if (e.isPrimary === false) {
+                    tapCandidate = null;
+                    return;
+                }
+                tapCandidate = {
+                    id: e.pointerId,
+                    x: e.clientX,
+                    y: e.clientY,
+                    time: performance.now()
+                };
+            });
+
+            renderer.domElement.addEventListener('pointerup', function (e) {
+                if (!tapCandidate || e.pointerId !== tapCandidate.id) return;
+                const dx = e.clientX - tapCandidate.x;
+                const dy = e.clientY - tapCandidate.y;
+                const dt = performance.now() - tapCandidate.time;
+                tapCandidate = null;
+
+                // Only trigger cabinet selection on a clean short tap (not an orbit/zoom drag)
+                if (Math.hypot(dx, dy) > 10 || dt > 350) return;
+                if (clickableDoors.length === 0) return;
+
+                const rect = renderer.domElement.getBoundingClientRect();
+                pointerNdc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                pointerNdc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+                raycaster.setFromCamera(pointerNdc, camera);
+                const hits = raycaster.intersectObjects(clickableDoors, false);
+                if (hits.length > 0) {
+                    const hitDoor = hits[0].object;
+                    clearDoorHighlight();
+                    selectedDoor = hitDoor;
+                    if (selectedDoor.material && selectedDoor.material.emissive) {
+                        selectedDoor.material.emissive.setHex(0x2196F3);
+                        selectedDoor.material.emissiveIntensity = 0.32;
+                    }
+                    focusOnCabinet(hitDoor);
+
+                    const meta = hitDoor.userData || {};
+                    if (window.AndroidBridge && typeof window.AndroidBridge.onCabinetSelected === 'function') {
+                        window.AndroidBridge.onCabinetSelected(
+                            meta.cabinetId || '',
+                            meta.nameEn || '',
+                            meta.nameEs || ''
+                        );
+                    }
+                }
+            });
 
             let currentModelFile = 'placeholder';
 
@@ -896,7 +1127,7 @@
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
                 renderer.setSize(window.innerWidth, window.innerHeight);
-                if (currentModelFile === 'model_hem2.glb') {
+                if (currentModelFile === 'model_hem2.glb' && !selectedDoor) {
                     frameHemGen2Camera();
                 }
             });
@@ -904,6 +1135,16 @@
             // Render loop
             function animate() {
                 requestAnimationFrame(animate);
+                if (camAnim) {
+                    const elapsed = performance.now() - camAnim.startTime;
+                    const t = Math.min(elapsed / camAnim.duration, 1);
+                    const ease = 1 - Math.pow(1 - t, 3); // cubic ease-out
+                    camera.position.lerpVectors(camAnim.startPos, camAnim.endPos, ease);
+                    controls.target.lerpVectors(camAnim.startTarget, camAnim.endTarget, ease);
+                    if (t >= 1) {
+                        camAnim = null;
+                    }
+                }
                 controls.update();
                 renderer.render(scene, camera);
             }
