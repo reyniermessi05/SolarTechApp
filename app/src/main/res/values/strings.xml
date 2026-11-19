@@ -9,4 +9,8 @@
     <string name="search_in_pdf">Search in PDF...</string>
     <string name="search_ai_placeholder">Advanced search requires AI indexing. Coming soon.</string>
     <string name="button_schematic">Schematic</string>
+    <string name="loto_select_cabinet_title">Select the cabinet where you want to work</string>
+    <string name="loto_apply_question">Do you want to apply LOTO?</string>
+    <string name="loto_apply_button">Apply LOTO</string>
+    <string name="loto_back_button">Back</string>
 </resources>

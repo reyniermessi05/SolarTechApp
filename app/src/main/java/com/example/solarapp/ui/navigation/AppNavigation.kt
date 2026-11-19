@@ -28,6 +28,7 @@ import com.example.solarapp.ui.screens.FaultFinderScreen
 import com.example.solarapp.ui.screens.HomeScreen
 import com.example.solarapp.ui.screens.Loto3DViewerScreen
 import com.example.solarapp.ui.screens.LotoMenuScreen
+import com.example.solarapp.ui.screens.LotoStepsScreen
 import com.example.solarapp.ui.screens.PdfViewerScreen
 import com.example.solarapp.ui.screens.PlaceholderScreen
 import com.example.solarapp.ui.screens.TroubleshootingScreen
@@ -39,6 +40,10 @@ sealed class Screen(val route: String, val title: String) {
     object Loto3DViewer : Screen("loto3d/{equipmentName}/{modelFileName}", "LOTO 3D") {
         fun createRoute(equipmentName: String, modelFileName: String) =
             "loto3d/${Uri.encode(equipmentName)}/${Uri.encode(modelFileName)}"
+    }
+    object LotoSteps : Screen("lotoSteps/{equipmentName}/{cabinetName}", "LOTO Steps") {
+        fun createRoute(equipmentName: String, cabinetName: String) =
+            "lotoSteps/${Uri.encode(equipmentName)}/${Uri.encode(cabinetName)}"
     }
     object Jha : Screen("jha", "JHA")
     object Plants : Screen("plants", "Plants")
@@ -82,8 +87,11 @@ fun AppNavigation() {
             faultCode
         }
         currentRoute?.startsWith("loto3d/") == true -> {
-            val equipmentName = Uri.decode(navBackStackEntry?.arguments?.getString("equipmentName") ?: "")
-            "$equipmentName - LOTO 3D"
+            androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.loto_select_cabinet_title)
+        }
+        currentRoute?.startsWith("lotoSteps/") == true -> {
+            val cabinetName = Uri.decode(navBackStackEntry?.arguments?.getString("cabinetName") ?: "")
+            "$cabinetName - LOTO"
         }
         currentRoute?.startsWith("pdfViewer/") == true -> {
             val fileName = Uri.decode(navBackStackEntry?.arguments?.getString("fileName") ?: "")
@@ -219,7 +227,24 @@ fun AppNavigation() {
                 val modelFileName = Uri.decode(backStackEntry.arguments?.getString("modelFileName") ?: "")
                 Loto3DViewerScreen(
                     equipmentName = equipmentName,
-                    modelFileName = modelFileName
+                    modelFileName = modelFileName,
+                    onApplyLoto = { equip, cabinet ->
+                        navController.navigate(Screen.LotoSteps.createRoute(equip, cabinet))
+                    }
+                )
+            }
+            composable(
+                route = Screen.LotoSteps.route,
+                arguments = listOf(
+                    navArgument("equipmentName") { type = NavType.StringType },
+                    navArgument("cabinetName") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val equipmentName = Uri.decode(backStackEntry.arguments?.getString("equipmentName") ?: "")
+                val cabinetName = Uri.decode(backStackEntry.arguments?.getString("cabinetName") ?: "")
+                LotoStepsScreen(
+                    equipmentName = equipmentName,
+                    cabinetName = cabinetName
                 )
             }
         }

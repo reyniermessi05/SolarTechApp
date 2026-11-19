@@ -9,4 +9,8 @@
     <string name="search_in_pdf">Buscar en PDF...</string>
     <string name="search_ai_placeholder">Búsqueda avanzada requiere indexación AI. Próximamente.</string>
     <string name="button_schematic">Planos</string>
+    <string name="loto_select_cabinet_title">Seleccione gabinete donde desea trabajar</string>
+    <string name="loto_apply_question">¿Desea aplicar LOTO?</string>
+    <string name="loto_apply_button">Aplicar LOTO</string>
+    <string name="loto_back_button">Volver</string>
 </resources>
