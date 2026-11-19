@@ -17,4 +17,5 @@
     <string name="loto_grid_danger_message">DANGER: This cabinet can only be accessed if the substation is open.\n\nDo you wish to continue?</string>
     <string name="loto_continue_button">Continue</string>
     <string name="loto_cancel_button">Cancel</string>
+    <string name="loto_reset_view">Reset 3D view</string>
 </resources>

@@ -46,7 +46,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -87,6 +89,7 @@ private class LotoAndroidBridge(
 fun Loto3DViewerScreen(
     equipmentName: String,
     modelFileName: String,
+    resetViewTrigger: Int = 0,
     onApplyLoto: (equipmentName: String, cabinetName: String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
@@ -105,6 +108,19 @@ fun Loto3DViewerScreen(
     var selectedCabinet by remember { mutableStateOf<SelectedCabinet?>(null) }
     var showGridDangerDialog by remember { mutableStateOf(false) }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
+    var lastHandledReset by remember { mutableIntStateOf(resetViewTrigger) }
+
+    LaunchedEffect(resetViewTrigger) {
+        if (resetViewTrigger != lastHandledReset) {
+            lastHandledReset = resetViewTrigger
+            showGridDangerDialog = false
+            selectedCabinet = null
+            webViewRef?.evaluateJavascript(
+                "if (typeof resetToInitialOverview === 'function') { resetToInitialOverview(); }",
+                null
+            )
+        }
+    }
 
     val assetLoader = remember(context) {
         WebViewAssetLoader.Builder()

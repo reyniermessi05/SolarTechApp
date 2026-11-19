@@ -3,6 +3,7 @@ package com.example.solarapp.ui.navigation
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -15,6 +16,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import android.net.Uri
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
@@ -65,6 +69,7 @@ fun AppNavigation() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    var lotoResetTrigger by remember { mutableIntStateOf(0) }
     
     // Determine title dynamically
     val currentTitle = when {
@@ -131,6 +136,14 @@ fun AppNavigation() {
                                 text = "EN/ES",
                                 color = MaterialTheme.colorScheme.onPrimary,
                                 style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+                    } else if (currentRoute?.startsWith("loto3d/") == true) {
+                        IconButton(onClick = { lotoResetTrigger++ }) {
+                            Icon(
+                                imageVector = Icons.Rounded.RestartAlt,
+                                contentDescription = androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.loto_reset_view),
+                                tint = MaterialTheme.colorScheme.onPrimary
                             )
                         }
                     }
@@ -228,6 +241,7 @@ fun AppNavigation() {
                 Loto3DViewerScreen(
                     equipmentName = equipmentName,
                     modelFileName = modelFileName,
+                    resetViewTrigger = lotoResetTrigger,
                     onApplyLoto = { equip, cabinet ->
                         navController.navigate(Screen.LotoSteps.createRoute(equip, cabinet))
                     }

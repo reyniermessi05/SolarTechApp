@@ -17,4 +17,5 @@
     <string name="loto_grid_danger_message">PELIGRO: Solo se puede acceder a este gabinete si la subestación se encuentra abierta.\n\n¿Desea continuar?</string>
     <string name="loto_continue_button">Continuar</string>
     <string name="loto_cancel_button">Cancelar</string>
+    <string name="loto_reset_view">Restablecer vista 3D</string>
 </resources>

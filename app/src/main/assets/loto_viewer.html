@@ -31,25 +31,6 @@
             height: 100%;
             touch-action: none;
         }
-        #hud-overlay {
-            position: absolute;
-            bottom: 16px;
-            left: 16px;
-            right: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            pointer-events: none;
-            color: rgba(255, 255, 255, 0.72);
-            font-size: 12px;
-        }
-        .hud-pill {
-            background: rgba(30, 30, 30, 0.78);
-            border: 1px solid rgba(144, 202, 249, 0.25);
-            border-radius: 999px;
-            padding: 6px 12px;
-            backdrop-filter: blur(4px);
-        }
         #focus-vignette {
             position: absolute;
             inset: 0;
@@ -66,10 +47,6 @@
 <body>
     <div id="viewer-container">
         <div id="focus-vignette"></div>
-        <div id="hud-overlay">
-            <span class="hud-pill" id="model-label">Model: Placeholder</span>
-            <span class="hud-pill">1-finger: Rotate &bull; Pinch: Zoom</span>
-        </div>
     </div>
 
     <!-- Local offline Three.js scripts served via WebViewAssetLoader -->
@@ -80,7 +57,6 @@
     <script>
         (function () {
             const container = document.getElementById('viewer-container');
-            const modelLabel = document.getElementById('model-label');
 
             // 1. Scene & Renderer
             const scene = new THREE.Scene();
@@ -92,7 +68,7 @@
                 0.1,
                 100
             );
-            camera.position.set(2.8, 2.2, 3.2);
+            camera.position.set(4.5, 3.2, 5.5);
 
             const renderer = new THREE.WebGLRenderer({
                 antialias: true,
@@ -102,7 +78,9 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.outputEncoding = THREE.sRGBEncoding;
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
-            renderer.toneMappingExposure = 1.1;
+            renderer.toneMappingExposure = 1.08;
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             container.appendChild(renderer.domElement);
 
             // 2. OrbitControls (full 360° touch rotation, pinch-to-zoom, smooth damping)
@@ -114,33 +92,50 @@
             controls.enableZoom = true;
             controls.zoomSpeed = 0.55;
             controls.enablePan = true;
-            controls.minDistance = 0.8;
-            controls.maxDistance = 20;
+            controls.minDistance = 2.6;
+            controls.maxDistance = 14.0;
+            controls.maxPolarAngle = Math.PI / 2 - 0.03;
             controls.touches = {
                 ONE: THREE.TOUCH.ROTATE,
                 TWO: THREE.TOUCH.DOLLY_PAN
             };
 
-            // 3. Subtle 3-point + hemisphere lighting
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
-            scene.add(ambientLight);
-
-            const hemiLight = new THREE.HemisphereLight(0x90caf9, 0x1e1e1e, 0.6);
-            hemiLight.position.set(0, 6, 0);
+            // 3. Balanced 3-point lighting with directional shadows
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444850, 0.55);
+            hemiLight.position.set(0, 8, 0);
             scene.add(hemiLight);
 
-            const keyLight = new THREE.DirectionalLight(0xffffff, 0.9);
-            keyLight.position.set(5, 7, 6);
+            const keyLight = new THREE.DirectionalLight(0xffffff, 1.15);
+            keyLight.position.set(6, 9, 7);
+            keyLight.castShadow = true;
+            keyLight.shadow.mapSize.width = 2048;
+            keyLight.shadow.mapSize.height = 2048;
+            keyLight.shadow.camera.near = 1;
+            keyLight.shadow.camera.far = 25;
+            keyLight.shadow.camera.left = -4.5;
+            keyLight.shadow.camera.right = 4.5;
+            keyLight.shadow.camera.top = 4.5;
+            keyLight.shadow.camera.bottom = -4.5;
+            keyLight.shadow.bias = -0.0005;
             scene.add(keyLight);
 
-            const fillLight = new THREE.DirectionalLight(0x81d4fa, 0.4);
-            fillLight.position.set(-5, 2, -5);
-            scene.add(fillLight);
+            const rimLight = new THREE.DirectionalLight(0xdbeafe, 0.45);
+            rimLight.position.set(-6, 5, -6);
+            scene.add(rimLight);
 
-            // Subtle reference grid on the floor for spatial orientation
-            const gridHelper = new THREE.GridHelper(12, 24, 0x37474f, 0x22282d);
-            gridHelper.position.y = -1.02;
+            // Ground reference grid at y = 0 and subtle shadow-catcher plane at y = 0.001
+            const gridHelper = new THREE.GridHelper(14, 28, 0x37474f, 0x22282d);
+            gridHelper.position.y = 0;
             scene.add(gridHelper);
+
+            const shadowPlane = new THREE.Mesh(
+                new THREE.PlaneGeometry(18, 14),
+                new THREE.ShadowMaterial({ opacity: 0.35 })
+            );
+            shadowPlane.rotation.x = -Math.PI / 2;
+            shadowPlane.position.y = 0.001;
+            shadowPlane.receiveShadow = true;
+            scene.add(shadowPlane);
 
             // Group holding the currently displayed equipment model
             const equipmentGroup = new THREE.Group();
@@ -179,20 +174,18 @@
                     const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
                     mats.forEach(restoreMaterialOriginals);
                 });
-                ambientLight.intensity = 0.45;
-                hemiLight.intensity = 0.6;
-                fillLight.intensity = 0.4;
-                keyLight.intensity = 0.9;
+                hemiLight.intensity = 0.55;
+                keyLight.intensity = 1.15;
+                rimLight.intensity = 0.45;
                 if (focusVignette) focusVignette.classList.remove('active');
                 selectedDoor = null;
             }
 
             function applyFocusDimming(activeDoor) {
                 selectedDoor = activeDoor;
-                ambientLight.intensity = 0.14;
                 hemiLight.intensity = 0.18;
-                fillLight.intensity = 0.12;
-                keyLight.intensity = 0.75;
+                keyLight.intensity = 0.85;
+                rimLight.intensity = 0.14;
 
                 equipmentGroup.traverse(function (obj) {
                     if (!obj.isMesh || !obj.material) return;
@@ -235,6 +228,9 @@
                 ];
 
                 const cubeMesh = new THREE.Mesh(geometry, faceMaterials);
+                cubeMesh.position.y = 0.75;
+                cubeMesh.castShadow = true;
+                cubeMesh.receiveShadow = true;
                 group.add(cubeMesh);
 
                 const edgesGeometry = new THREE.EdgesGeometry(geometry);
@@ -244,6 +240,7 @@
                     opacity: 0.85
                 });
                 const wireframe = new THREE.LineSegments(edgesGeometry, edgesMaterial);
+                wireframe.position.y = 0.75;
                 group.add(wireframe);
 
                 return group;
@@ -264,13 +261,13 @@
                 const plenumH = 0.25;
                 const totalH = skidH + bodyH + plenumH; // 2.03m
 
-                // Vertical center coordinates (bottom of skid at -1.015, top of plenum at +1.015)
-                const yBottom = -totalH / 2; // -1.015
-                const skidCenterY = yBottom + skidH / 2; // -0.925
-                const bodyBottomY = yBottom + skidH; // -0.835
-                const bodyCenterY = bodyBottomY + bodyH / 2; // -0.035
-                const bodyTopY = bodyBottomY + bodyH; // +0.765
-                const plenumCenterY = bodyTopY + plenumH / 2; // +0.890
+                // Vertical center coordinates (bottom of skid at y = 0.0, top of plenum at y = 2.03)
+                const yBottom = 0; // 0.000
+                const skidCenterY = yBottom + skidH / 2; // 0.090
+                const bodyBottomY = yBottom + skidH; // 0.180
+                const bodyCenterY = bodyBottomY + bodyH / 2; // 0.980
+                const bodyTopY = bodyBottomY + bodyH; // 1.780
+                const plenumCenterY = bodyTopY + plenumH / 2; // 1.905
 
                 // Shared materials
                 const matSkid = new THREE.MeshStandardMaterial({ color: 0x8A9096, roughness: 0.55, metalness: 0.60 });
@@ -1060,6 +1057,15 @@
                 addBox(0.024, 0.20, 0.036, rightX + 0.012, bodyCenterY, +0.09, matLatch);
                 // Solid top plenum (+X): no vent
 
+                // Enable realistic shadow casting and receiving across all inverter meshes
+                root.traverse(function (obj) {
+                    if (obj.isMesh) {
+                        const isTransparent = obj.material && obj.material.transparent;
+                        obj.castShadow = !isTransparent;
+                        obj.receiveShadow = true;
+                    }
+                });
+
                 return root;
             }
 
@@ -1076,6 +1082,7 @@
             }
 
             function getHemGen2OverviewPose() {
+                const center = new THREE.Vector3(0, 1.015, 0);
                 const dir = new THREE.Vector3(0.68, 0.38, 0.82).normalize();
                 const fovRad = THREE.MathUtils.degToRad(camera.fov);
                 const hFovRad = 2 * Math.atan(Math.tan(fovRad / 2) * camera.aspect);
@@ -1084,11 +1091,11 @@
                 const halfHeight = 1.4;
                 const distForWidth = halfWidth / Math.tan(hFovRad / 2);
                 const distForHeight = halfHeight / Math.tan(fovRad / 2);
-                const distance = Math.max(distForWidth, distForHeight, 6.8) * 1.08;
+                const distance = Math.min(Math.max(distForWidth, distForHeight, 6.8) * 1.08, 13.5);
 
                 return {
-                    position: dir.multiplyScalar(distance),
-                    target: new THREE.Vector3(0, 0, 0)
+                    position: center.clone().add(dir.multiplyScalar(distance)),
+                    target: center
                 };
             }
 
@@ -1100,16 +1107,18 @@
                 const pose = getHemGen2OverviewPose();
                 controls.target.copy(pose.target);
                 camera.position.copy(pose.position);
-                controls.minDistance = 0.7;
-                controls.maxDistance = 20;
+                controls.minDistance = 2.6;
+                controls.maxDistance = 14.0;
+                controls.maxPolarAngle = Math.PI / 2 - 0.03;
                 controls.update();
             }
 
             function framePlaceholderCamera() {
-                controls.target.set(0, 0, 0);
+                controls.target.set(0, 0.75, 0);
                 camera.position.set(2.8, 2.2, 3.2);
-                controls.minDistance = 1.5;
-                controls.maxDistance = 15;
+                controls.minDistance = 2.6;
+                controls.maxDistance = 14.0;
+                controls.maxPolarAngle = Math.PI / 2 - 0.03;
                 controls.update();
             }
 
@@ -1138,16 +1147,16 @@
                 const fovRad = THREE.MathUtils.degToRad(camera.fov);
                 const hFovRad = 2 * Math.atan(Math.tan(fovRad / 2) * camera.aspect);
 
-                // Ensure enough distance in narrow/portrait viewports to see the whole cabinet
-                const baseDist = meta.focusDist || 2.4;
-                const dist = Math.max(baseDist, 1.35 / Math.tan(hFovRad / 2));
+                // Ensure enough distance in narrow/portrait viewports and respect minDistance = 2.6
+                const baseDist = meta.focusDist || 2.6;
+                const dist = Math.max(baseDist, 2.65, 1.35 / Math.tan(hFovRad / 2));
 
                 // Right vector when looking from normal toward focusPt
                 const up = new THREE.Vector3(0, 1, 0);
                 const forward = normal.clone().negate();
                 const rightVec = new THREE.Vector3().crossVectors(forward, up).normalize();
 
-                // Shift camera & target right by ~24% of visible horizontal span so cabinet sits on the left
+                // Shift camera & target right so cabinet sits on the left next to the right-side panel
                 const halfSpanX = dist * Math.tan(hFovRad / 2);
                 const shiftRight = rightVec.multiplyScalar(halfSpanX * 0.42);
 
@@ -1165,13 +1174,22 @@
                     previousCameraPos = null;
                     previousControlsTarget = null;
                     startCameraAnimation(restorePos, restoreTarget, 520);
-                } else if (currentModelFile === 'model_hem2.glb') {
+                } else {
+                    window.resetToInitialOverview();
+                }
+            };
+
+            window.resetToInitialOverview = function () {
+                clearFocusDimming();
+                previousCameraPos = null;
+                previousControlsTarget = null;
+                if (currentModelFile === 'model_hem2.glb') {
                     const pose = getHemGen2OverviewPose();
                     startCameraAnimation(pose.position, pose.target, 520);
                 } else {
                     startCameraAnimation(
                         new THREE.Vector3(2.8, 2.2, 3.2),
-                        new THREE.Vector3(0, 0, 0),
+                        new THREE.Vector3(0, 0.75, 0),
                         450
                     );
                 }
@@ -1250,13 +1268,11 @@
                 currentModelFile = targetName;
 
                 if (targetName === 'model_hem2.glb') {
-                    modelLabel.textContent = 'HEM Gen. 2 (6.40m × 2.03m × 2.24m)';
                     equipmentGroup.add(createHemGen2Model());
                     frameHemGen2Camera();
                     return;
                 }
 
-                modelLabel.textContent = 'Model: ' + targetName + ' (Placeholder)';
                 equipmentGroup.add(createPlaceholderCube());
                 framePlaceholderCamera();
 
@@ -1277,7 +1293,6 @@
                         model.scale.setScalar(scale);
                         model.position.sub(center.multiplyScalar(scale));
                         equipmentGroup.add(model);
-                        modelLabel.textContent = 'Model: ' + targetName;
                     },
                     undefined,
                     function (error) {
@@ -1304,6 +1319,49 @@
                 }
             });
 
+            // Solid collision safety box around HEM Gen. 2 (enclosure + 0.45m buffer)
+            const SAFE_MIN_X = -3.65;
+            const SAFE_MAX_X = 3.65;
+            const SAFE_MAX_Y = 2.48;
+            const SAFE_MIN_Z = -1.57;
+            const SAFE_MAX_Z = 1.57;
+
+            function enforceSolidCameraBounds() {
+                if (camera.position.y < 0.08) {
+                    camera.position.y = 0.08;
+                }
+                if (currentModelFile !== 'model_hem2.glb') return;
+
+                const px = camera.position.x;
+                const py = camera.position.y;
+                const pz = camera.position.z;
+
+                if (
+                    px > SAFE_MIN_X && px < SAFE_MAX_X &&
+                    py < SAFE_MAX_Y &&
+                    pz > SAFE_MIN_Z && pz < SAFE_MAX_Z
+                ) {
+                    const dPosX = SAFE_MAX_X - px;
+                    const dNegX = px - SAFE_MIN_X;
+                    const dPosY = SAFE_MAX_Y - py;
+                    const dPosZ = SAFE_MAX_Z - pz;
+                    const dNegZ = pz - SAFE_MIN_Z;
+
+                    const minPen = Math.min(dPosX, dNegX, dPosY, dPosZ, dNegZ);
+                    if (minPen === dPosX) {
+                        camera.position.x = SAFE_MAX_X;
+                    } else if (minPen === dNegX) {
+                        camera.position.x = SAFE_MIN_X;
+                    } else if (minPen === dPosY) {
+                        camera.position.y = SAFE_MAX_Y;
+                    } else if (minPen === dPosZ) {
+                        camera.position.z = SAFE_MAX_Z;
+                    } else {
+                        camera.position.z = SAFE_MIN_Z;
+                    }
+                }
+            }
+
             // Render loop
             function animate() {
                 requestAnimationFrame(animate);
@@ -1318,6 +1376,7 @@
                     }
                 }
                 controls.update();
+                enforceSolidCameraBounds();
                 renderer.render(scene, camera);
             }
             animate();
