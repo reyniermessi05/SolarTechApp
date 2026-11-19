@@ -29,9 +29,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -41,6 +44,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -61,18 +65,19 @@ import com.example.solarapp.R
 private data class SelectedCabinet(
     val cabinetId: String,
     val nameEn: String,
-    val nameEs: String
+    val nameEs: String,
+    val isGridConnection: Boolean
 )
 
 private class LotoAndroidBridge(
-    private val onSelected: (cabinetId: String, nameEn: String, nameEs: String) -> Unit
+    private val onSelected: (cabinetId: String, nameEn: String, nameEs: String, isGridConnection: Boolean) -> Unit
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
 
     @JavascriptInterface
-    fun onCabinetSelected(cabinetId: String, nameEn: String, nameEs: String) {
+    fun onCabinetSelected(cabinetId: String, nameEn: String, nameEs: String, isGridConnection: Boolean) {
         mainHandler.post {
-            onSelected(cabinetId, nameEn, nameEs)
+            onSelected(cabinetId, nameEn, nameEs, isGridConnection)
         }
     }
 }
@@ -98,6 +103,7 @@ fun Loto3DViewerScreen(
     }
 
     var selectedCabinet by remember { mutableStateOf<SelectedCabinet?>(null) }
+    var showGridDangerDialog by remember { mutableStateOf(false) }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
     val assetLoader = remember(context) {
@@ -110,6 +116,7 @@ fun Loto3DViewerScreen(
     }
 
     val dismissPanel: () -> Unit = {
+        showGridDangerDialog = false
         selectedCabinet = null
         webViewRef?.evaluateJavascript(
             "if (typeof resetCameraView === 'function') { resetCameraView(); }",
@@ -137,8 +144,9 @@ fun Loto3DViewerScreen(
                     settings.displayZoomControls = false
 
                     addJavascriptInterface(
-                        LotoAndroidBridge { id, nameEn, nameEs ->
-                            selectedCabinet = SelectedCabinet(id, nameEn, nameEs)
+                        LotoAndroidBridge { id, nameEn, nameEs, isGrid ->
+                            showGridDangerDialog = false
+                            selectedCabinet = SelectedCabinet(id, nameEn, nameEs, isGrid)
                         },
                         "AndroidBridge"
                     )
@@ -225,7 +233,7 @@ fun Loto3DViewerScreen(
                                 text = localizedCabinetName,
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
-                                color = ComposeColor(0xFF90CAF9)
+                                color = if (cabinet.isGridConnection) ComposeColor(0xFFEF5350) else ComposeColor(0xFF90CAF9)
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
@@ -240,10 +248,16 @@ fun Loto3DViewerScreen(
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Button(
-                                onClick = { onApplyLoto(equipmentName, localizedCabinetName) },
+                                onClick = {
+                                    if (cabinet.isGridConnection || cabinet.cabinetId == "12") {
+                                        showGridDangerDialog = true
+                                    } else {
+                                        onApplyLoto(equipmentName, localizedCabinetName)
+                                    }
+                                },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = ComposeColor(0xFF1565C0),
+                                    containerColor = if (cabinet.isGridConnection) ComposeColor(0xFFC62828) else ComposeColor(0xFF1565C0),
                                     contentColor = ComposeColor.White
                                 )
                             ) {
@@ -262,6 +276,65 @@ fun Loto3DViewerScreen(
                     }
                 }
             }
+        }
+
+        if (showGridDangerDialog && selectedCabinet != null) {
+            val cabinet = selectedCabinet!!
+            val localizedCabinetName = if (isSpanish) cabinet.nameEs else cabinet.nameEn
+            AlertDialog(
+                onDismissRequest = { showGridDangerDialog = false },
+                containerColor = ComposeColor(0xFF1E1E1E),
+                titleContentColor = ComposeColor(0xFFEF4444),
+                textContentColor = ComposeColor.White,
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = stringResource(R.string.loto_grid_danger_title),
+                        tint = ComposeColor(0xFFEF4444)
+                    )
+                },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(R.string.loto_grid_danger_title),
+                            fontWeight = FontWeight.ExtraBold,
+                            color = ComposeColor(0xFFEF4444)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
+                },
+                text = {
+                    Text(
+                        text = stringResource(R.string.loto_grid_danger_message),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showGridDangerDialog = false
+                            onApplyLoto(equipmentName, localizedCabinetName)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ComposeColor(0xFFDC2626),
+                            contentColor = ComposeColor.White
+                        )
+                    ) {
+                        Text(
+                            text = stringResource(R.string.loto_continue_button),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showGridDangerDialog = false }) {
+                        Text(
+                            text = stringResource(R.string.loto_cancel_button),
+                            color = ComposeColor(0xFFBDBDBD)
+                        )
+                    }
+                }
+            )
         }
     }
 }

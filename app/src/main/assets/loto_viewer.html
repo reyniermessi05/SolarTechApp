@@ -50,10 +50,22 @@
             padding: 6px 12px;
             backdrop-filter: blur(4px);
         }
+        #focus-vignette {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.35s ease;
+            background: radial-gradient(circle at 28% 50%, transparent 18%, rgba(6, 8, 12, 0.74) 80%);
+        }
+        #focus-vignette.active {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
     <div id="viewer-container">
+        <div id="focus-vignette"></div>
         <div id="hud-overlay">
             <span class="hud-pill" id="model-label">Model: Placeholder</span>
             <span class="hud-pill">1-finger: Rotate &bull; Pinch: Zoom</span>
@@ -135,16 +147,77 @@
             scene.add(equipmentGroup);
 
             // Interactive cabinet door registry & selection state
+            const focusVignette = document.getElementById('focus-vignette');
             let clickableDoors = [];
             let selectedDoor = null;
             let camAnim = null;
+            let previousCameraPos = null;
+            let previousControlsTarget = null;
 
-            function clearDoorHighlight() {
-                if (selectedDoor && selectedDoor.material && selectedDoor.material.emissive) {
-                    selectedDoor.material.emissive.setHex(0x000000);
-                    selectedDoor.material.emissiveIntensity = 0;
+            function saveMaterialOriginals(mat) {
+                if (!mat || mat.userData._savedOrig) return;
+                mat.userData._savedOrig = true;
+                if (mat.color) mat.userData._origColor = mat.color.clone();
+                if (mat.emissive) mat.userData._origEmissive = mat.emissive.clone();
+                if (typeof mat.emissiveIntensity === 'number') {
+                    mat.userData._origEmissiveIntensity = mat.emissiveIntensity;
                 }
+            }
+
+            function restoreMaterialOriginals(mat) {
+                if (!mat || !mat.userData._savedOrig) return;
+                if (mat.color && mat.userData._origColor) mat.color.copy(mat.userData._origColor);
+                if (mat.emissive && mat.userData._origEmissive) mat.emissive.copy(mat.userData._origEmissive);
+                if (typeof mat.emissiveIntensity === 'number' && typeof mat.userData._origEmissiveIntensity === 'number') {
+                    mat.emissiveIntensity = mat.userData._origEmissiveIntensity;
+                }
+            }
+
+            function clearFocusDimming() {
+                equipmentGroup.traverse(function (obj) {
+                    if (!obj.isMesh || !obj.material) return;
+                    const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+                    mats.forEach(restoreMaterialOriginals);
+                });
+                ambientLight.intensity = 0.45;
+                hemiLight.intensity = 0.6;
+                fillLight.intensity = 0.4;
+                keyLight.intensity = 0.9;
+                if (focusVignette) focusVignette.classList.remove('active');
                 selectedDoor = null;
+            }
+
+            function applyFocusDimming(activeDoor) {
+                selectedDoor = activeDoor;
+                ambientLight.intensity = 0.14;
+                hemiLight.intensity = 0.18;
+                fillLight.intensity = 0.12;
+                keyLight.intensity = 0.75;
+
+                equipmentGroup.traverse(function (obj) {
+                    if (!obj.isMesh || !obj.material) return;
+                    const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+                    mats.forEach(function (mat) {
+                        saveMaterialOriginals(mat);
+                        if (obj === activeDoor) {
+                            restoreMaterialOriginals(mat);
+                            if (mat.emissive) {
+                                const isGrid = activeDoor.userData && activeDoor.userData.isGridConnection;
+                                mat.emissive.setHex(isGrid ? 0xEF4444 : 0x2196F3);
+                                mat.emissiveIntensity = 0.36;
+                            }
+                        } else {
+                            if (mat.color && mat.userData._origColor) {
+                                mat.color.copy(mat.userData._origColor).multiplyScalar(0.28);
+                            }
+                            if (mat.emissive) {
+                                mat.emissiveIntensity = (mat.userData._origEmissiveIntensity || 0) * 0.25;
+                            }
+                        }
+                    });
+                });
+
+                if (focusVignette) focusVignette.classList.add('active');
             }
 
             // Helper: build the placeholder cube with distinct face shading and crisp edges
@@ -549,44 +622,70 @@
                 const lower32CenterY = (split68Y + bodyBottomY) / 2;
                 const rightSideLatchY = bodyBottomY + bodyH * 0.435; // ~43.5% up from bottom for Bays 5, 6, 7
 
-                const frontBayMeta = [
-                    { cabinetId: 'front_power_1', nameEn: 'Power Module Cabinet', nameEs: 'Gabinete de Módulos de Potencia' },
-                    { cabinetId: 'front_power_2', nameEn: 'Power Module Cabinet', nameEs: 'Gabinete de Módulos de Potencia' },
-                    { cabinetId: 'front_filter_3', nameEn: 'Ventilation / Filter Cabinet', nameEs: 'Gabinete de Ventilación / Filtros' },
-                    { cabinetId: 'front_vent_4', nameEn: 'Ventilation / Filter Cabinet', nameEs: 'Gabinete de Ventilación / Filtros' },
-                    { cabinetId: 'front_power_5', nameEn: 'Power Module Cabinet', nameEs: 'Gabinete de Módulos de Potencia' },
-                    { cabinetId: 'front_main_control', nameEn: 'Main Control Cabinet', nameEs: 'Gabinete de Control Principal' },
-                    { cabinetId: 'front_mv_7', nameEn: 'MV Switchgear Cabinet', nameEs: 'Gabinete de Media Tensión (MT)' }
-                ];
+                const lower32H = split68Y - bodyBottomY;
 
                 for (let i = 0; i < bayCount; i++) {
                     const bayX = -L / 2 + (i + 0.5) * bayW;
                     const latchX = bayX + bayW * 0.36;
-                    addClickableDoor(bayW - 0.016, bodyH - 0.02, 0.004, bayX, bodyCenterY, frontZ + 0.001, {
-                        ...frontBayMeta[i],
-                        focusPoint: [bayX, bodyCenterY, frontZ],
-                        focusNormal: [0, 0.08, 1],
-                        focusDist: 2.35
-                    });
 
-                    if (i === 0 || i === 1) {
-                        // Bays 1-2: ~68% upper door with centered latch + ~32% lower panel (no lower latch)
+                    if (i === 0) {
+                        // Bay 1: #3 Upper ("Module 5"), #6 Lower ("DC Busbar Connections")
+                        addClickableDoor(bayW - 0.016, upper68H - 0.014, 0.004, bayX, upper68CenterY, frontZ + 0.001, {
+                            cabinetId: '3', nameEn: 'Module 5', nameEs: 'Módulo 5', isGridConnection: false,
+                            focusPoint: [bayX, upper68CenterY, frontZ], focusNormal: [0, 0.06, 1], focusDist: 2.1
+                        });
+                        addClickableDoor(bayW - 0.016, lower32H - 0.014, 0.004, bayX, lower32CenterY, frontZ + 0.001, {
+                            cabinetId: '6', nameEn: 'DC Busbar Connections', nameEs: 'Conexiones de Barras DC', isGridConnection: false,
+                            focusPoint: [bayX, lower32CenterY, frontZ], focusNormal: [0, 0.06, 1], focusDist: 1.9
+                        });
+                        addBox(bayW - 0.03, 0.010, 0.008, bayX, split68Y, frontZ + 0.004, matSeam);
+                        addZLatch(latchX, upper68CenterY, +1);
+                    } else if (i === 1) {
+                        // Bay 2: #4 Upper ("Module 3"), #7 Lower ("DC Breaker / Voltage Boards")
+                        addClickableDoor(bayW - 0.016, upper68H - 0.014, 0.004, bayX, upper68CenterY, frontZ + 0.001, {
+                            cabinetId: '4', nameEn: 'Module 3', nameEs: 'Módulo 3', isGridConnection: false,
+                            focusPoint: [bayX, upper68CenterY, frontZ], focusNormal: [0, 0.06, 1], focusDist: 2.1
+                        });
+                        addClickableDoor(bayW - 0.016, lower32H - 0.014, 0.004, bayX, lower32CenterY, frontZ + 0.001, {
+                            cabinetId: '7', nameEn: 'DC Breaker / Voltage Boards', nameEs: 'Interruptor DC / Tarjetas de Voltaje', isGridConnection: false,
+                            focusPoint: [bayX, lower32CenterY, frontZ], focusNormal: [0, 0.06, 1], focusDist: 1.9
+                        });
                         addBox(bayW - 0.03, 0.010, 0.008, bayX, split68Y, frontZ + 0.004, matSeam);
                         addZLatch(latchX, upper68CenterY, +1);
                     } else if (i === 2) {
-                        // Bay 3: ~68% upper door with centered latch + ~32% lower panel with diagonal filter hood
+                        // Bay 3: #5 Upper ("Module 1"), #8 Lower ("Ventilation Input")
+                        addClickableDoor(bayW - 0.016, upper68H - 0.014, 0.004, bayX, upper68CenterY, frontZ + 0.001, {
+                            cabinetId: '5', nameEn: 'Module 1', nameEs: 'Módulo 1', isGridConnection: false,
+                            focusPoint: [bayX, upper68CenterY, frontZ], focusNormal: [0, 0.06, 1], focusDist: 2.1
+                        });
+                        addClickableDoor(bayW - 0.016, lower32H - 0.014, 0.004, bayX, lower32CenterY, frontZ + 0.001, {
+                            cabinetId: '8', nameEn: 'Ventilation Input', nameEs: 'Entrada de Ventilación', isGridConnection: false,
+                            focusPoint: [bayX, lower32CenterY, frontZ], focusNormal: [0, 0.06, 1], focusDist: 1.9
+                        });
                         addBox(bayW - 0.03, 0.010, 0.008, bayX, split68Y, frontZ + 0.004, matSeam);
                         addZLatch(latchX, upper68CenterY, +1);
                         addLowerHood(bayX, +1, lower32CenterY);
                     } else if (i === 3) {
-                        // Bay 4 (center): 3 stacked downward-angled louver hoods + horizontal slots + mesh grille
+                        // Bay 4 (center): #9 ("Cyclone Fan Cabinet")
+                        addClickableDoor(bayW - 0.016, bodyH - 0.02, 0.004, bayX, bodyCenterY, frontZ + 0.001, {
+                            cabinetId: '9', nameEn: 'Cyclone Fan Cabinet', nameEs: 'Gabinete de Ventilador Ciclón', isGridConnection: false,
+                            focusPoint: [bayX, bodyCenterY, frontZ], focusNormal: [0, 0.08, 1], focusDist: 2.35
+                        });
                         addStackedLouverHoods(bayX, +1);
                         addCenterBayLowerVents(bayX, +1);
                     } else if (i === 4) {
-                        // Bay 5: Full-height door with aligned latch
+                        // Bay 5: #10 ("LCL Filter")
+                        addClickableDoor(bayW - 0.016, bodyH - 0.02, 0.004, bayX, bodyCenterY, frontZ + 0.001, {
+                            cabinetId: '10', nameEn: 'LCL Filter', nameEs: 'Filtro LCL', isGridConnection: false,
+                            focusPoint: [bayX, bodyCenterY, frontZ], focusNormal: [0, 0.08, 1], focusDist: 2.35
+                        });
                         addZLatch(latchX, rightSideLatchY, +1);
                     } else if (i === 5) {
-                        // Bay 6 (Main Control Cabinet): Clean door + 3D control panel + aligned latch
+                        // Bay 6: #11 ("Central Cabinet / Auxiliary Transformer")
+                        addClickableDoor(bayW - 0.016, bodyH - 0.02, 0.004, bayX, bodyCenterY, frontZ + 0.001, {
+                            cabinetId: '11', nameEn: 'Central Cabinet / Auxiliary Transformer', nameEs: 'Gabinete Central / Transformador Auxiliar', isGridConnection: false,
+                            focusPoint: [bayX, bodyCenterY, frontZ], focusNormal: [0, 0.08, 1], focusDist: 2.25
+                        });
                         addZLatch(latchX, rightSideLatchY, +1);
 
                         const panelZ = frontZ + 0.004;
@@ -701,7 +800,11 @@
                         ethCore.position.set(mvX, botY, panelZ + 0.009);
                         root.add(ethCore);
                     } else if (i === 6) {
-                        // Bay 7 (right): Full-height door with aligned latch
+                        // Bay 7 (right): #12 ("Grid Connection (Do Not Open)")
+                        addClickableDoor(bayW - 0.016, bodyH - 0.02, 0.004, bayX, bodyCenterY, frontZ + 0.001, {
+                            cabinetId: '12', nameEn: 'Grid Connection (Do Not Open)', nameEs: 'Conexión a Red (No Abrir)', isGridConnection: true,
+                            focusPoint: [bayX, bodyCenterY, frontZ], focusNormal: [0, 0.08, 1], focusDist: 2.35
+                        });
                         addZLatch(latchX, rightSideLatchY, +1);
                     }
                 }
@@ -718,7 +821,13 @@
                 // =========================================================
                 const backZ = -W / 2;
                 const backPlenumZ = -plenumW / 2;
+                const split50H = bodyH / 2;
+                const upper50CenterY = (bodyTopY + bodyCenterY) / 2;
+                const lower50CenterY = (bodyCenterY + bodyBottomY) / 2;
                 const split70Y = bodyTopY - bodyH * 0.70; // ~70% upper door / ~30% lower panel
+                const upper70H = bodyTopY - split70Y;
+                const lower30H = split70Y - bodyBottomY;
+                const upper70CenterY = (bodyTopY + split70Y) / 2;
                 const upper70LatchY = (bodyTopY + split70Y) / 2 - 0.12;
                 const lower30CenterY = (split70Y + bodyBottomY) / 2;
 
@@ -727,55 +836,87 @@
                     addBox(0.012, bodyH - 0.02, 0.008, seamX, bodyCenterY, backZ - 0.004, matSeam);
                 }
 
-                const backBayMeta = [
-                    { cabinetId: 'back_mv_1', nameEn: 'MV Switchgear Cabinet', nameEs: 'Gabinete de Media Tensión (MT)' },
-                    { cabinetId: 'back_power_2', nameEn: 'Power Module Cabinet', nameEs: 'Gabinete de Módulos de Potencia' },
-                    { cabinetId: 'back_power_3', nameEn: 'Power Module Cabinet', nameEs: 'Gabinete de Módulos de Potencia' },
-                    { cabinetId: 'back_vent_4', nameEn: 'Ventilation / Filter Cabinet', nameEs: 'Gabinete de Ventilación / Filtros' },
-                    { cabinetId: 'back_filter_5', nameEn: 'Ventilation / Filter Cabinet', nameEs: 'Gabinete de Ventilación / Filtros' },
-                    { cabinetId: 'back_power_6', nameEn: 'Power Module Cabinet', nameEs: 'Gabinete de Módulos de Potencia' },
-                    { cabinetId: 'back_power_7', nameEn: 'Power Module Cabinet', nameEs: 'Gabinete de Módulos de Potencia' }
-                ];
-
                 for (let i = 0; i < bayCount; i++) {
                     // Left-to-right when facing the -Z back face from outside
                     const bayX = L / 2 - (i + 0.5) * bayW;
                     const latchX = bayX - bayW * 0.36; // right edge of door when viewing -Z face
-                    addClickableDoor(bayW - 0.016, bodyH - 0.02, 0.004, bayX, bodyCenterY, backZ - 0.001, {
-                        ...backBayMeta[i],
-                        focusPoint: [bayX, bodyCenterY, backZ],
-                        focusNormal: [0, 0.08, -1],
-                        focusDist: 2.35
-                    });
 
                     if (i === 0) {
-                        // Bay 1 (leftmost): 50/50 split, no latches; solid top plenum (no vent)
+                        // Bay 1 (leftmost): #14 Upper ("Econ Mode Transformer"), #15 Lower ("Auxiliary Connections")
+                        addClickableDoor(bayW - 0.016, split50H - 0.014, 0.004, bayX, upper50CenterY, backZ - 0.001, {
+                            cabinetId: '14', nameEn: 'Econ Mode Transformer', nameEs: 'Transformador Econ Mode', isGridConnection: false,
+                            focusPoint: [bayX, upper50CenterY, backZ], focusNormal: [0, 0.06, -1], focusDist: 2.0
+                        });
+                        addClickableDoor(bayW - 0.016, split50H - 0.014, 0.004, bayX, lower50CenterY, backZ - 0.001, {
+                            cabinetId: '15', nameEn: 'Auxiliary Connections', nameEs: 'Conexiones Auxiliares', isGridConnection: false,
+                            focusPoint: [bayX, lower50CenterY, backZ], focusNormal: [0, 0.06, -1], focusDist: 2.0
+                        });
                         addBox(bayW - 0.03, 0.010, 0.008, bayX, bodyCenterY, backZ - 0.004, matSeam);
                     } else if (i === 1) {
-                        // Bay 2: 50/50 split, no latches; top plenum louvered vent
+                        // Bay 2: #16 Upper ("Power Supplies / MV Board"), #17 Lower ("Customer Cabinet")
+                        addClickableDoor(bayW - 0.016, split50H - 0.014, 0.004, bayX, upper50CenterY, backZ - 0.001, {
+                            cabinetId: '16', nameEn: 'Power Supplies / MV Board', nameEs: 'Fuentes de Alimentación / Tarjeta MT', isGridConnection: false,
+                            focusPoint: [bayX, upper50CenterY, backZ], focusNormal: [0, 0.06, -1], focusDist: 2.0
+                        });
+                        addClickableDoor(bayW - 0.016, split50H - 0.014, 0.004, bayX, lower50CenterY, backZ - 0.001, {
+                            cabinetId: '17', nameEn: 'Customer Cabinet', nameEs: 'Gabinete del Cliente', isGridConnection: false,
+                            focusPoint: [bayX, lower50CenterY, backZ], focusNormal: [0, 0.06, -1], focusDist: 2.0
+                        });
                         addBox(bayW - 0.03, 0.010, 0.008, bayX, bodyCenterY, backZ - 0.004, matSeam);
                         addZLouverGrille(bayX, plenumCenterY, backPlenumZ, 0.58, 0.14, 3);
                     } else if (i === 2) {
-                        // Bay 3: Single full-height panel, no latches; top plenum louvered vent
+                        // Bay 3: #18 Full-height ("MV Transformer Cabinet")
+                        addClickableDoor(bayW - 0.016, bodyH - 0.02, 0.004, bayX, bodyCenterY, backZ - 0.001, {
+                            cabinetId: '18', nameEn: 'MV Transformer Cabinet', nameEs: 'Gabinete del Transformador MT', isGridConnection: false,
+                            focusPoint: [bayX, bodyCenterY, backZ], focusNormal: [0, 0.08, -1], focusDist: 2.35
+                        });
                         addZLouverGrille(bayX, plenumCenterY, backPlenumZ, 0.58, 0.14, 3);
                     } else if (i === 3) {
-                        // Bay 4 (center): 3 stacked louver hoods, horizontal slots, mesh grille; top plenum vent
+                        // Bay 4 (center): #19 Full-height ("Cyclone Fan Cabinet")
+                        addClickableDoor(bayW - 0.016, bodyH - 0.02, 0.004, bayX, bodyCenterY, backZ - 0.001, {
+                            cabinetId: '19', nameEn: 'Cyclone Fan Cabinet', nameEs: 'Gabinete de Ventilador Ciclón', isGridConnection: false,
+                            focusPoint: [bayX, bodyCenterY, backZ], focusNormal: [0, 0.08, -1], focusDist: 2.35
+                        });
                         addStackedLouverHoods(bayX, -1);
                         addCenterBayLowerVents(bayX, -1);
                         addZLouverGrille(bayX, plenumCenterY, backPlenumZ, 0.58, 0.14, 3);
                     } else if (i === 4) {
-                        // Bay 5: ~70% upper door with black latch + ~30% lower panel with diagonal filter hood; plenum vent
+                        // Bay 5: #20 Upper ("Module 2"), #23 Lower ("Ventilation Input")
+                        addClickableDoor(bayW - 0.016, upper70H - 0.014, 0.004, bayX, upper70CenterY, backZ - 0.001, {
+                            cabinetId: '20', nameEn: 'Module 2', nameEs: 'Módulo 2', isGridConnection: false,
+                            focusPoint: [bayX, upper70CenterY, backZ], focusNormal: [0, 0.06, -1], focusDist: 2.1
+                        });
+                        addClickableDoor(bayW - 0.016, lower30H - 0.014, 0.004, bayX, lower30CenterY, backZ - 0.001, {
+                            cabinetId: '23', nameEn: 'Ventilation Input', nameEs: 'Entrada de Ventilación', isGridConnection: false,
+                            focusPoint: [bayX, lower30CenterY, backZ], focusNormal: [0, 0.06, -1], focusDist: 1.9
+                        });
                         addBox(bayW - 0.03, 0.010, 0.008, bayX, split70Y, backZ - 0.004, matSeam);
                         addZLatch(latchX, upper70LatchY, -1);
                         addLowerHood(bayX, -1, lower30CenterY);
                         addZLouverGrille(bayX, plenumCenterY, backPlenumZ, 0.58, 0.14, 3);
                     } else if (i === 5) {
-                        // Bay 6: ~70% upper door with black latch + ~30% flat lower panel (no latch); plenum vent
+                        // Bay 6: #21 Upper ("Module 4"), #24 Lower ("DC Breaker / Voltage Boards")
+                        addClickableDoor(bayW - 0.016, upper70H - 0.014, 0.004, bayX, upper70CenterY, backZ - 0.001, {
+                            cabinetId: '21', nameEn: 'Module 4', nameEs: 'Módulo 4', isGridConnection: false,
+                            focusPoint: [bayX, upper70CenterY, backZ], focusNormal: [0, 0.06, -1], focusDist: 2.1
+                        });
+                        addClickableDoor(bayW - 0.016, lower30H - 0.014, 0.004, bayX, lower30CenterY, backZ - 0.001, {
+                            cabinetId: '24', nameEn: 'DC Breaker / Voltage Boards', nameEs: 'Interruptor DC / Tarjetas de Voltaje', isGridConnection: false,
+                            focusPoint: [bayX, lower30CenterY, backZ], focusNormal: [0, 0.06, -1], focusDist: 1.9
+                        });
                         addBox(bayW - 0.03, 0.010, 0.008, bayX, split70Y, backZ - 0.004, matSeam);
                         addZLatch(latchX, upper70LatchY, -1);
                         addZLouverGrille(bayX, plenumCenterY, backPlenumZ, 0.58, 0.14, 3);
                     } else if (i === 6) {
-                        // Bay 7 (rightmost): ~70% upper door with black latch + ~30% flat lower panel; wider plenum vent
+                        // Bay 7 (rightmost): #22 Upper ("Module 6"), #25 Lower ("DC Busbar Connections")
+                        addClickableDoor(bayW - 0.016, upper70H - 0.014, 0.004, bayX, upper70CenterY, backZ - 0.001, {
+                            cabinetId: '22', nameEn: 'Module 6', nameEs: 'Módulo 6', isGridConnection: false,
+                            focusPoint: [bayX, upper70CenterY, backZ], focusNormal: [0, 0.06, -1], focusDist: 2.1
+                        });
+                        addClickableDoor(bayW - 0.016, lower30H - 0.014, 0.004, bayX, lower30CenterY, backZ - 0.001, {
+                            cabinetId: '25', nameEn: 'DC Busbar Connections', nameEs: 'Conexiones de Barras DC', isGridConnection: false,
+                            focusPoint: [bayX, lower30CenterY, backZ], focusNormal: [0, 0.06, -1], focusDist: 1.9
+                        });
                         addBox(bayW - 0.03, 0.010, 0.008, bayX, split70Y, backZ - 0.004, matSeam);
                         addZLatch(latchX, upper70LatchY, -1);
                         addZLouverGrille(bayX, plenumCenterY, backPlenumZ, 0.84, 0.14, 3);
@@ -783,7 +924,7 @@
                 }
 
                 // =========================================================
-                // 3. LEFT END FACE (-X, DC Cabinet End): 3 columns split upper/lower
+                // 3. LEFT END FACE (-X, DC Cabinet End): 3 columns split upper (#1) / lower (#2)
                 // =========================================================
                 const leftX = -L / 2;
                 const colCount = 3;
@@ -802,14 +943,24 @@
 
                 for (let c = 0; c < colCount; c++) {
                     const colZ = -W / 2 + (c + 0.5) * colW;
-                    const doorNum = c + 1;
-                    addClickableDoor(0.004, bodyH - 0.02, colW - 0.016, leftX - 0.001, bodyCenterY, colZ, {
-                        cabinetId: 'dc_cabinet_' + doorNum,
-                        nameEn: 'DC Disconnect Cabinet (Door ' + doorNum + ')',
-                        nameEs: 'Gabinete de Desconectivos DC (Puerta ' + doorNum + ')',
-                        focusPoint: [leftX, bodyCenterY + 0.10, colZ],
+                    // #1 Upper ("DU Cabinet") & #2 Lower ("Field Inputs")
+                    addClickableDoor(0.004, upper68H - 0.014, colW - 0.016, leftX - 0.001, upper68CenterY, colZ, {
+                        cabinetId: '1',
+                        nameEn: 'DU Cabinet',
+                        nameEs: 'Gabinete DU',
+                        isGridConnection: false,
+                        focusPoint: [leftX, upper68CenterY, colZ],
                         focusNormal: [-1, 0.06, 0],
-                        focusDist: 2.35
+                        focusDist: 2.15
+                    });
+                    addClickableDoor(0.004, lower32H - 0.014, colW - 0.016, leftX - 0.001, lower32CenterY, colZ, {
+                        cabinetId: '2',
+                        nameEn: 'Field Inputs',
+                        nameEs: 'Entradas de Campo',
+                        isGridConnection: false,
+                        focusPoint: [leftX, lower32CenterY, colZ],
+                        focusNormal: [-1, 0.06, 0],
+                        focusDist: 1.95
                     });
 
                     // Black door latch on right edge of each upper door only (lower panels are clean/flat)
@@ -878,16 +1029,29 @@
                 }
 
                 // =========================================================
-                // 4. RIGHT END FACE (+X, MV End): 2 full-height double doors
+                // 4. RIGHT END FACE (+X, MV End): 2 full-height double doors (#12 Left / #13 Right)
                 // =========================================================
                 const rightX = L / 2;
-                addClickableDoor(0.004, bodyH - 0.02, W - 0.02, rightX + 0.001, bodyCenterY, 0, {
-                    cabinetId: 'mv_switchgear_cabinet',
-                    nameEn: 'MV Switchgear Cabinet',
-                    nameEs: 'Gabinete de Media Tensión (MT)',
-                    focusPoint: [rightX, bodyCenterY, 0],
+                const halfW = W / 2;
+                // Left door (+Z half, adjacent to Front Bay 7): #12 ("Grid Connection (Do Not Open)")
+                addClickableDoor(0.004, bodyH - 0.02, halfW - 0.016, rightX + 0.001, bodyCenterY, +W / 4, {
+                    cabinetId: '12',
+                    nameEn: 'Grid Connection (Do Not Open)',
+                    nameEs: 'Conexión a Red (No Abrir)',
+                    isGridConnection: true,
+                    focusPoint: [rightX, bodyCenterY, +W / 4],
                     focusNormal: [1, 0.08, 0],
-                    focusDist: 2.85
+                    focusDist: 2.35
+                });
+                // Right door (-Z half, adjacent to Back Bay 1): #13 ("MV Switchgear")
+                addClickableDoor(0.004, bodyH - 0.02, halfW - 0.016, rightX + 0.001, bodyCenterY, -W / 4, {
+                    cabinetId: '13',
+                    nameEn: 'MV Switchgear',
+                    nameEs: 'Celda de Media Tensión',
+                    isGridConnection: false,
+                    focusPoint: [rightX, bodyCenterY, -W / 4],
+                    focusNormal: [1, 0.08, 0],
+                    focusDist: 2.35
                 });
                 // Center vertical seam separating the 2 full-height double doors
                 addBox(0.008, bodyH - 0.02, 0.014, rightX + 0.004, bodyCenterY, 0, matSeam);
@@ -900,9 +1064,11 @@
             }
 
             function clearEquipmentGroup() {
-                clearDoorHighlight();
+                clearFocusDimming();
                 clickableDoors = [];
                 camAnim = null;
+                previousCameraPos = null;
+                previousControlsTarget = null;
                 while (equipmentGroup.children.length > 0) {
                     const child = equipmentGroup.children[0];
                     equipmentGroup.remove(child);
@@ -992,8 +1158,14 @@
             }
 
             window.resetCameraView = function () {
-                clearDoorHighlight();
-                if (currentModelFile === 'model_hem2.glb') {
+                clearFocusDimming();
+                if (previousCameraPos && previousControlsTarget) {
+                    const restorePos = previousCameraPos;
+                    const restoreTarget = previousControlsTarget;
+                    previousCameraPos = null;
+                    previousControlsTarget = null;
+                    startCameraAnimation(restorePos, restoreTarget, 520);
+                } else if (currentModelFile === 'model_hem2.glb') {
                     const pose = getHemGen2OverviewPose();
                     startCameraAnimation(pose.position, pose.target, 520);
                 } else {
@@ -1043,12 +1215,11 @@
                 const hits = raycaster.intersectObjects(clickableDoors, false);
                 if (hits.length > 0) {
                     const hitDoor = hits[0].object;
-                    clearDoorHighlight();
-                    selectedDoor = hitDoor;
-                    if (selectedDoor.material && selectedDoor.material.emissive) {
-                        selectedDoor.material.emissive.setHex(0x2196F3);
-                        selectedDoor.material.emissiveIntensity = 0.32;
+                    if (!selectedDoor) {
+                        previousCameraPos = camera.position.clone();
+                        previousControlsTarget = controls.target.clone();
                     }
+                    applyFocusDimming(hitDoor);
                     focusOnCabinet(hitDoor);
 
                     const meta = hitDoor.userData || {};
@@ -1056,7 +1227,8 @@
                         window.AndroidBridge.onCabinetSelected(
                             meta.cabinetId || '',
                             meta.nameEn || '',
-                            meta.nameEs || ''
+                            meta.nameEs || '',
+                            Boolean(meta.isGridConnection)
                         );
                     }
                 }
