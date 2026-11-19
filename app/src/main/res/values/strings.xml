@@ -31,4 +31,5 @@
     <string name="loto_previous_photo">Previous photo</string>
     <string name="loto_next_photo">Next photo</string>
     <string name="loto_close">Close</string>
+    <string name="loto_status_chip">Status %1$s</string>
 </resources>

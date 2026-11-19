@@ -479,7 +479,7 @@ fun Loto3DViewerScreen(
                     )
                     Text(
                         text = if (activeStatus != null) {
-                            activeStatus!!.code
+                            stringResource(R.string.loto_status_chip, activeStatus!!.code)
                         } else {
                             stringResource(R.string.loto_select_status)
                         },
@@ -511,10 +511,7 @@ fun Loto3DViewerScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                 ) {
                     Column(
-                        modifier = Modifier
-                            .padding(14.dp)
-                            .heightIn(max = 310.dp)
-                            .verticalScroll(rememberScrollState()),
+                        modifier = Modifier.padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Row(
@@ -542,54 +539,64 @@ fun Loto3DViewerScreen(
                             }
                         }
 
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            status.colors.forEach { colorItem ->
-                                val legendText = when (colorItem) {
-                                    LotoStatusColor.GREEN -> stringResource(R.string.loto_legend_green)
-                                    LotoStatusColor.RED -> stringResource(R.string.loto_legend_red)
-                                    LotoStatusColor.YELLOW -> stringResource(R.string.loto_legend_yellow)
-                                    LotoStatusColor.PURPLE -> stringResource(R.string.loto_legend_purple)
-                                }
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(12.dp)
-                                            .clip(CircleShape)
-                                            .background(colorItem.hexColor)
-                                    )
-                                    Text(
-                                        text = legendText,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = ComposeColor(0xFFE5E7EB)
-                                    )
+                        Column(
+                            modifier = Modifier
+                                .weight(1f, fill = false)
+                                .heightIn(max = 200.dp)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                status.colors.forEach { colorItem ->
+                                    val legendText = when (colorItem) {
+                                        LotoStatusColor.GREEN -> stringResource(R.string.loto_legend_green)
+                                        LotoStatusColor.RED -> stringResource(R.string.loto_legend_red)
+                                        LotoStatusColor.YELLOW -> stringResource(R.string.loto_legend_yellow)
+                                        LotoStatusColor.PURPLE -> stringResource(R.string.loto_legend_purple)
+                                    }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(12.dp)
+                                                .clip(CircleShape)
+                                                .background(colorItem.hexColor)
+                                        )
+                                        Text(
+                                            text = legendText,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = ComposeColor(0xFFE5E7EB)
+                                        )
+                                    }
                                 }
                             }
+
+                            Text(
+                                text = stringResource(R.string.loto_type_of_activities),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = ComposeColor(0xFF9CA3AF)
+                            )
+                            Text(
+                                text = localizedActivities,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = ComposeColor(0xFFD1D5DB)
+                            )
                         }
 
-                        Text(
-                            text = stringResource(R.string.loto_type_of_activities),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = ComposeColor(0xFF9CA3AF)
-                        )
-                        Text(
-                            text = localizedActivities,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = ComposeColor(0xFFD1D5DB)
-                        )
-
-                        Button(
-                            onClick = { onApplyLoto(equipmentName, localizedTitle) },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = ComposeColor(0xFF1565C0),
-                                contentColor = ComposeColor.White
-                            )
-                        ) {
-                            Text(text = stringResource(R.string.loto_apply_button))
+                        if (status.code != "1A") {
+                            Button(
+                                onClick = { onApplyLoto(equipmentName, localizedTitle) },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = ComposeColor(0xFF1565C0),
+                                    contentColor = ComposeColor.White
+                                )
+                            ) {
+                                Text(text = stringResource(R.string.loto_apply_button))
+                            }
                         }
                     }
                 }
