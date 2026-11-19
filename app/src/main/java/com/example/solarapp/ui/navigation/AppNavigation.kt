@@ -1,6 +1,10 @@
 package com.example.solarapp.ui.navigation
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Info
@@ -22,6 +26,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import android.net.Uri
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -134,11 +145,7 @@ fun AppNavigation() {
                             }
                             AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(newLocale))
                         }) {
-                            Text(
-                                text = "EN/ES",
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                style = MaterialTheme.typography.labelLarge
-                            )
+                            SplitLanguageFlagIcon(modifier = Modifier.size(36.dp))
                         }
                     } else if (currentRoute?.startsWith("loto3d/") == true) {
                         IconButton(onClick = { lotoHelpTrigger++ }) {
@@ -272,5 +279,111 @@ fun AppNavigation() {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun SplitLanguageFlagIcon(modifier: Modifier = Modifier) {
+    Canvas(
+        modifier = modifier
+            .clip(CircleShape)
+            .border(1.5.dp, Color.White.copy(alpha = 0.85f), CircleShape)
+    ) {
+        val w = size.width
+        val h = size.height
+
+        val topLeftPath = Path().apply {
+            moveTo(0f, 0f)
+            lineTo(w, 0f)
+            lineTo(0f, h)
+            close()
+        }
+        val bottomRightPath = Path().apply {
+            moveTo(w, 0f)
+            lineTo(w, h)
+            lineTo(0f, h)
+            close()
+        }
+
+        // Top-left half: Spanish flag
+        clipPath(topLeftPath) {
+            drawRect(color = Color(0xFFAA151B))
+            drawRect(
+                color = Color(0xFFF1BF00),
+                topLeft = Offset(0f, h * 0.25f),
+                size = Size(w, h * 0.50f)
+            )
+            // Minimal emblem dot
+            drawCircle(
+                color = Color(0xFFAA151B),
+                radius = w * 0.06f,
+                center = Offset(w * 0.27f, h * 0.43f)
+            )
+        }
+
+        // Bottom-right half: UK Union Jack flag
+        clipPath(bottomRightPath) {
+            drawRect(color = Color(0xFF012169))
+            // Diagonal white saltire
+            drawLine(
+                color = Color.White,
+                start = Offset(0f, 0f),
+                end = Offset(w, h),
+                strokeWidth = w * 0.16f
+            )
+            drawLine(
+                color = Color.White,
+                start = Offset(w, 0f),
+                end = Offset(0f, h),
+                strokeWidth = w * 0.16f
+            )
+            // Diagonal red saltire
+            drawLine(
+                color = Color(0xFFC8102E),
+                start = Offset(0f, 0f),
+                end = Offset(w, h),
+                strokeWidth = w * 0.075f
+            )
+            drawLine(
+                color = Color(0xFFC8102E),
+                start = Offset(w, 0f),
+                end = Offset(0f, h),
+                strokeWidth = w * 0.075f
+            )
+            // Orthogonal white cross
+            drawLine(
+                color = Color.White,
+                start = Offset(0f, h * 0.5f),
+                end = Offset(w, h * 0.5f),
+                strokeWidth = w * 0.24f
+            )
+            drawLine(
+                color = Color.White,
+                start = Offset(w * 0.5f, 0f),
+                end = Offset(w * 0.5f, h),
+                strokeWidth = w * 0.24f
+            )
+            // Orthogonal red cross
+            drawLine(
+                color = Color(0xFFC8102E),
+                start = Offset(0f, h * 0.5f),
+                end = Offset(w, h * 0.5f),
+                strokeWidth = w * 0.13f
+            )
+            drawLine(
+                color = Color(0xFFC8102E),
+                start = Offset(w * 0.5f, 0f),
+                end = Offset(w * 0.5f, h),
+                strokeWidth = w * 0.13f
+            )
+        }
+
+        // Crisp diagonal split divider
+        drawLine(
+            color = Color.White.copy(alpha = 0.85f),
+            start = Offset(0f, h),
+            end = Offset(w, 0f),
+            strokeWidth = 1.2.dp.toPx()
+        )
     }
 }
