@@ -32,4 +32,9 @@
     <string name="loto_next_photo">Foto siguiente</string>
     <string name="loto_close">Cerrar</string>
     <string name="loto_status_chip">Estado %1$s</string>
+    <string name="loto_select_green_status">Seleccione el estado LOTOTO (gabinete en verde):</string>
+    <string name="loto_empty_grid_status">Este gabinete permanece energizado en todos los estados LOTOTO.</string>
+    <string name="loto_empty_purple_status">Este gabinete no tiene ningún estado LOTOTO en verde (desenergizado). Permanece en Púrpura (energizado, trabajo solo con EPP bajo condiciones específicas) en los estados 2 y 5A, y en Rojo en el resto.</string>
+    <string name="loto_empty_generic_status">Este gabinete no tiene estados LOTOTO en verde disponibles.</string>
+    <string name="loto_status_info">Información del estado</string>
 </resources>

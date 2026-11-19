@@ -1292,6 +1292,28 @@
                 });
             };
 
+            window.tintSelectedCabinetGreen = function (enable) {
+                if (!selectedDoor || !selectedDoor.material) return;
+                const mats = Array.isArray(selectedDoor.material) ? selectedDoor.material : [selectedDoor.material];
+                const isGrid = selectedDoor.userData && selectedDoor.userData.isGridConnection;
+                mats.forEach(function (mat) {
+                    saveMaterialOriginals(mat);
+                    if (enable) {
+                        if (mat.color) mat.color.setHex(0x4ADE80);
+                        if (mat.emissive) {
+                            mat.emissive.setHex(0x22C55E);
+                            mat.emissiveIntensity = 0.28;
+                        }
+                    } else {
+                        restoreMaterialOriginals(mat);
+                        if (mat.emissive) {
+                            mat.emissive.setHex(isGrid ? 0xEF4444 : 0x2196F3);
+                            mat.emissiveIntensity = 0.36;
+                        }
+                    }
+                });
+            };
+
             // Raycaster tap detection (distinguishes short tap from drag/orbit)
             const raycaster = new THREE.Raycaster();
             const pointerNdc = new THREE.Vector2();
