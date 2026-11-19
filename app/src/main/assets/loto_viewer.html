@@ -1099,9 +1099,13 @@
                 }
             }
 
-            function getHemGen2OverviewPose() {
-                const center = new THREE.Vector3(0, 1.015, 0);
-                const dir = new THREE.Vector3(0.68, 0.38, 0.82).normalize();
+            function getHemGen2OverviewPose(isStatusActive = false) {
+                const isPortrait = camera.aspect < 1.0;
+                const targetY = isStatusActive ? (isPortrait ? 0.15 : 0.35) : 1.0;
+                const center = new THREE.Vector3(0, targetY, 0);
+                const dir = isStatusActive
+                    ? new THREE.Vector3(0.66, 0.42, 0.82).normalize()
+                    : new THREE.Vector3(0.68, 0.38, 0.82).normalize();
                 const fovRad = THREE.MathUtils.degToRad(camera.fov);
                 const hFovRad = 2 * Math.atan(Math.tan(fovRad / 2) * camera.aspect);
 
@@ -1109,7 +1113,8 @@
                 const halfHeight = 1.4;
                 const distForWidth = halfWidth / Math.tan(hFovRad / 2);
                 const distForHeight = halfHeight / Math.tan(fovRad / 2);
-                const distance = Math.min(Math.max(distForWidth, distForHeight, 6.8) * 1.08, 13.5);
+                const scaleFactor = isStatusActive ? (isPortrait ? 1.15 : 1.12) : 1.08;
+                const distance = Math.min(Math.max(distForWidth, distForHeight, 6.8) * scaleFactor, 13.5);
 
                 return {
                     position: center.clone().add(dir.multiplyScalar(distance)),
@@ -1122,7 +1127,7 @@
              * 6.40m HEM Gen. 2 inverter fits cleanly on screen regardless of aspect ratio.
              */
             function frameHemGen2Camera() {
-                const pose = getHemGen2OverviewPose();
+                const pose = getHemGen2OverviewPose(false);
                 controls.target.copy(pose.target);
                 camera.position.copy(pose.position);
                 controls.minDistance = 2.6;
@@ -1202,7 +1207,7 @@
                 previousCameraPos = null;
                 previousControlsTarget = null;
                 if (currentModelFile === 'model_hem2.glb') {
-                    const pose = getHemGen2OverviewPose();
+                    const pose = getHemGen2OverviewPose(false);
                     startCameraAnimation(pose.position, pose.target, 520);
                 } else {
                     startCameraAnimation(
@@ -1269,8 +1274,18 @@
             }
 
             window.applyLotoStatusColors = function (statusCode) {
-                window.resetToInitialOverview();
                 const code = (statusCode || '').trim();
+                clearFocusDimming();
+                previousCameraPos = null;
+                previousControlsTarget = null;
+
+                if (currentModelFile === 'model_hem2.glb') {
+                    const pose = getHemGen2OverviewPose(code.length > 0);
+                    startCameraAnimation(pose.position, pose.target, 520);
+                } else {
+                    window.resetToInitialOverview();
+                }
+
                 clickableDoors.forEach(function (door) {
                     const hex = getStatusColorForDoor(code, door.userData || {});
                     if (door.material && door.material.color) {

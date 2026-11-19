@@ -26,4 +26,9 @@
     <string name="loto_legend_red">Energized area, work is not allowed</string>
     <string name="loto_legend_yellow">Energized area, PPE checks only</string>
     <string name="loto_legend_purple">Energized area, work only with PPE</string>
+    <string name="loto_visual_help">Visual Help</string>
+    <string name="loto_visual_help_step">Visual Help #%1$d</string>
+    <string name="loto_previous_photo">Previous photo</string>
+    <string name="loto_next_photo">Next photo</string>
+    <string name="loto_close">Close</string>
 </resources>

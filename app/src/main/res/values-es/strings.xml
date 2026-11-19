@@ -26,4 +26,9 @@
     <string name="loto_legend_red">Área energizada, trabajo no permitido</string>
     <string name="loto_legend_yellow">Área energizada, solo comprobaciones con EPP</string>
     <string name="loto_legend_purple">Área energizada, trabajo solo con EPP</string>
+    <string name="loto_visual_help">Ayuda Visual</string>
+    <string name="loto_visual_help_step">Ayuda Visual #%1$d</string>
+    <string name="loto_previous_photo">Foto anterior</string>
+    <string name="loto_next_photo">Foto siguiente</string>
+    <string name="loto_close">Cerrar</string>
 </resources>
