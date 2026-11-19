@@ -32,4 +32,9 @@
     <string name="loto_next_photo">Next photo</string>
     <string name="loto_close">Close</string>
     <string name="loto_status_chip">Status %1$s</string>
+    <string name="loto_select_green_status">Select LOTOTO status (green cabinet):</string>
+    <string name="loto_empty_grid_status">This cabinet remains energized in all LOTOTO statuses.</string>
+    <string name="loto_empty_purple_status">This cabinet has no green (de-energized) LOTOTO status. It remains Purple (energized, work only with PPE under specific conditions) in statuses 2 and 5A, and Red in all others.</string>
+    <string name="loto_empty_generic_status">This cabinet has no green LOTOTO statuses available.</string>
+    <string name="loto_status_info">Status info</string>
 </resources>

@@ -200,6 +200,20 @@ private val HEM_GEN2_STATUSES = listOf(
     )
 )
 
+private fun getGreenStatusesForCabinet(cabinetId: String): List<LotoStatusOption> {
+    val greenCodes = when (cabinetId) {
+        "1" -> listOf("2", "5A")
+        "2", "12", "25" -> emptyList()
+        "3", "4", "5", "7", "8" -> listOf("2", "3B", "5A")
+        "6", "24" -> listOf("2", "5A")
+        "9", "10", "11", "19", "20", "21", "22", "23" -> listOf("2", "3B", "4", "5A")
+        "13", "14" -> listOf("2", "4")
+        "15", "16", "17", "18" -> listOf("2", "3B", "4")
+        else -> emptyList()
+    }
+    return HEM_GEN2_STATUSES.filter { it.code in greenCodes }
+}
+
 private data class SelectedCabinet(
     val cabinetId: String,
     val nameEn: String,
@@ -264,6 +278,8 @@ fun Loto3DViewerScreen(
     }
 
     var selectedCabinet by remember { mutableStateOf<SelectedCabinet?>(null) }
+    var selectedCabinetStatus by remember { mutableStateOf<LotoStatusOption?>(null) }
+    var infoStatusDialogOption by remember { mutableStateOf<LotoStatusOption?>(null) }
     var showGridDangerDialog by remember { mutableStateOf(false) }
     var activeStatus by remember { mutableStateOf<LotoStatusOption?>(null) }
     var showStatusDialog by remember { mutableStateOf(false) }
@@ -276,6 +292,8 @@ fun Loto3DViewerScreen(
     val applyStatus: (LotoStatusOption?) -> Unit = { status ->
         showStatusDialog = false
         showGridDangerDialog = false
+        infoStatusDialogOption = null
+        selectedCabinetStatus = null
         selectedCabinet = null
         activeStatus = status
         val code = status?.code ?: ""
@@ -289,6 +307,8 @@ fun Loto3DViewerScreen(
         if (resetViewTrigger != lastHandledReset) {
             lastHandledReset = resetViewTrigger
             showGridDangerDialog = false
+            infoStatusDialogOption = null
+            selectedCabinetStatus = null
             selectedCabinet = null
             webViewRef?.evaluateJavascript(
                 "if (typeof resetToInitialOverview === 'function') { resetToInitialOverview(); }",
@@ -315,6 +335,8 @@ fun Loto3DViewerScreen(
 
     val dismissPanel: () -> Unit = {
         showGridDangerDialog = false
+        infoStatusDialogOption = null
+        selectedCabinetStatus = null
         selectedCabinet = null
         webViewRef?.evaluateJavascript(
             "if (typeof resetCameraView === 'function') { resetCameraView(); }",
@@ -344,6 +366,8 @@ fun Loto3DViewerScreen(
                     addJavascriptInterface(
                         LotoAndroidBridge { id, nameEn, nameEs, isGrid ->
                             showGridDangerDialog = false
+                            infoStatusDialogOption = null
+                            selectedCabinetStatus = null
                             selectedCabinet = SelectedCabinet(id, nameEn, nameEs, isGrid)
                         },
                         "AndroidBridge"
@@ -392,12 +416,15 @@ fun Loto3DViewerScreen(
             exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut(),
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .fillMaxWidth(0.44f)
+                .fillMaxWidth(0.45f)
                 .fillMaxHeight()
                 .padding(12.dp)
         ) {
             selectedCabinet?.let { cabinet ->
                 val localizedCabinetName = if (isSpanish) cabinet.nameEs else cabinet.nameEn
+                val greenStatuses = remember(cabinet.cabinetId) {
+                    getGreenStatusesForCabinet(cabinet.cabinetId)
+                }
                 Card(
                     modifier = Modifier.fillMaxSize(),
                     shape = RoundedCornerShape(16.dp),
@@ -410,53 +437,186 @@ fun Loto3DViewerScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.SpaceBetween
+                            .padding(16.dp)
                     ) {
-                        Column {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                IconButton(onClick = dismissPanel) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = stringResource(R.string.loto_back_button),
-                                        tint = ComposeColor.White
-                                    )
-                                }
-                            }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
                                 text = localizedCabinetName,
-                                style = MaterialTheme.typography.titleLarge,
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = if (cabinet.isGridConnection) ComposeColor(0xFFEF5350) else ComposeColor(0xFF90CAF9)
+                                color = if (cabinet.isGridConnection) ComposeColor(0xFFEF5350) else ComposeColor(0xFF90CAF9),
+                                modifier = Modifier.weight(1f)
                             )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = stringResource(R.string.loto_apply_question),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = ComposeColor(0xFFE0E0E0)
-                            )
+                            IconButton(
+                                onClick = dismissPanel,
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.loto_back_button),
+                                    tint = ComposeColor.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Text(
+                            text = stringResource(R.string.loto_select_green_status),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ComposeColor(0xFFD1D5DB)
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            if (greenStatuses.isEmpty()) {
+                                val emptyMessage = when {
+                                    cabinet.isGridConnection || cabinet.cabinetId == "12" ->
+                                        stringResource(R.string.loto_empty_grid_status)
+                                    cabinet.cabinetId == "2" || cabinet.cabinetId == "25" ->
+                                        stringResource(R.string.loto_empty_purple_status)
+                                    else ->
+                                        stringResource(R.string.loto_empty_generic_status)
+                                }
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .border(
+                                            width = 1.dp,
+                                            color = if (cabinet.isGridConnection || cabinet.cabinetId == "12") {
+                                                ComposeColor(0x88EF5350)
+                                            } else {
+                                                ComposeColor(0x88C084FC)
+                                            },
+                                            shape = RoundedCornerShape(12.dp)
+                                        ),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (cabinet.isGridConnection || cabinet.cabinetId == "12") {
+                                        ComposeColor(0x26EF4444)
+                                    } else {
+                                        ComposeColor(0x26C084FC)
+                                    }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        verticalAlignment = Alignment.Top
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Warning,
+                                            contentDescription = null,
+                                            tint = if (cabinet.isGridConnection || cabinet.cabinetId == "12") {
+                                                ComposeColor(0xFFF87171)
+                                            } else {
+                                                ComposeColor(0xFFC084FC)
+                                            },
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Text(
+                                            text = emptyMessage,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = ComposeColor(0xFFF3F4F6)
+                                        )
+                                    }
+                                }
+                            } else {
+                                greenStatuses.forEach { statusOption ->
+                                    val isSelected = selectedCabinetStatus?.code == statusOption.code
+                                    val statusLabel = if (isSpanish) statusOption.titleEs else statusOption.titleEn
+                                    Surface(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .border(
+                                                width = if (isSelected) 1.5.dp else 1.dp,
+                                                color = if (isSelected) ComposeColor(0xFF4ADE80) else ComposeColor(0x44FFFFFF),
+                                                shape = RoundedCornerShape(12.dp)
+                                            )
+                                            .clickable {
+                                                val nextSelection = if (isSelected) null else statusOption
+                                                selectedCabinetStatus = nextSelection
+                                                webViewRef?.evaluateJavascript(
+                                                    "if (typeof tintSelectedCabinetGreen === 'function') { tintSelectedCabinetGreen(${nextSelection != null}); }",
+                                                    null
+                                                )
+                                            },
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = if (isSelected) ComposeColor(0x264ADE80) else ComposeColor(0xFF2A2A2A)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(start = 10.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = if (isSelected) {
+                                                    Icons.Default.CheckCircle
+                                                } else {
+                                                    Icons.Default.RadioButtonUnchecked
+                                                },
+                                                contentDescription = null,
+                                                tint = if (isSelected) ComposeColor(0xFF4ADE80) else ComposeColor(0xFF9CA3AF),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Text(
+                                                text = statusLabel,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                                                color = ComposeColor.White,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            IconButton(
+                                                onClick = { infoStatusDialogOption = statusOption },
+                                                modifier = Modifier.size(32.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Outlined.Info,
+                                                    contentDescription = stringResource(R.string.loto_status_info),
+                                                    tint = ComposeColor(0xFF90CAF9),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
 
                         Column(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Button(
                                 onClick = {
                                     if (cabinet.isGridConnection || cabinet.cabinetId == "12") {
                                         showGridDangerDialog = true
-                                    } else {
+                                    } else if (selectedCabinetStatus != null) {
                                         onApplyLoto(equipmentName, localizedCabinetName)
                                     }
                                 },
+                                enabled = selectedCabinetStatus != null,
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = if (cabinet.isGridConnection) ComposeColor(0xFFC62828) else ComposeColor(0xFF1565C0),
-                                    contentColor = ComposeColor.White
+                                    contentColor = ComposeColor.White,
+                                    disabledContainerColor = ComposeColor(0xFF374151),
+                                    disabledContentColor = ComposeColor(0xFF9CA3AF)
                                 )
                             ) {
                                 Text(text = stringResource(R.string.loto_apply_button))
@@ -474,6 +634,50 @@ fun Loto3DViewerScreen(
                     }
                 }
             }
+        }
+
+        infoStatusDialogOption?.let { infoStatus ->
+            val infoTitle = if (isSpanish) infoStatus.titleEs else infoStatus.titleEn
+            val infoActivities = if (isSpanish) infoStatus.activitiesEs else infoStatus.activitiesEn
+            val annotatedInfoActivities = remember(infoActivities) {
+                highlightDoorColorPhrases(infoActivities)
+            }
+            AlertDialog(
+                onDismissRequest = { infoStatusDialogOption = null },
+                containerColor = ComposeColor(0xFF1E1E1E),
+                titleContentColor = ComposeColor.White,
+                textContentColor = ComposeColor.White,
+                title = {
+                    Text(
+                        text = infoTitle,
+                        fontWeight = FontWeight.Bold,
+                        color = ComposeColor(0xFF90CAF9)
+                    )
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = stringResource(R.string.loto_type_of_activities),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = ComposeColor(0xFF9CA3AF)
+                        )
+                        Text(
+                            text = annotatedInfoActivities,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ComposeColor(0xFFE5E7EB)
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { infoStatusDialogOption = null }) {
+                        Text(
+                            text = stringResource(R.string.loto_close),
+                            color = ComposeColor(0xFF90CAF9)
+                        )
+                    }
+                }
+            )
         }
 
         if (modelFileName == "model_hem2.glb") {
