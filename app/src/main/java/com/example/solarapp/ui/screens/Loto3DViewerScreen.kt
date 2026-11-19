@@ -90,6 +90,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -103,6 +106,30 @@ private enum class LotoStatusColor(val hexColor: ComposeColor) {
     RED(ComposeColor(0xFFF87171)),
     YELLOW(ComposeColor(0xFFFACC15)),
     PURPLE(ComposeColor(0xFFC084FC))
+}
+
+private fun highlightDoorColorPhrases(text: String): AnnotatedString {
+    val phraseColors = listOf(
+        Regex("""\b(green doors?|puertas? verdes?)\b""", RegexOption.IGNORE_CASE) to LotoStatusColor.GREEN.hexColor,
+        Regex("""\b(red doors?|puertas? rojas?)\b""", RegexOption.IGNORE_CASE) to LotoStatusColor.RED.hexColor,
+        Regex("""\b(yellow doors?|puertas? amarillas?)\b""", RegexOption.IGNORE_CASE) to LotoStatusColor.YELLOW.hexColor,
+        Regex("""\b(purple doors?|puertas? moradas?|puertas? púrpuras?)\b""", RegexOption.IGNORE_CASE) to LotoStatusColor.PURPLE.hexColor
+    )
+    return buildAnnotatedString {
+        append(text)
+        phraseColors.forEach { (regex, color) ->
+            regex.findAll(text).forEach { match ->
+                addStyle(
+                    style = SpanStyle(
+                        color = color,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    start = match.range.first,
+                    end = match.range.last + 1
+                )
+            }
+        }
+    }
 }
 
 private data class LotoStatusOption(
@@ -579,8 +606,11 @@ fun Loto3DViewerScreen(
                                 fontWeight = FontWeight.SemiBold,
                                 color = ComposeColor(0xFF9CA3AF)
                             )
+                            val annotatedActivities = remember(localizedActivities) {
+                                highlightDoorColorPhrases(localizedActivities)
+                            }
                             Text(
-                                text = localizedActivities,
+                                text = annotatedActivities,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = ComposeColor(0xFFD1D5DB)
                             )
