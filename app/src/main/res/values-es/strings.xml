@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">App Solar</string>
-    <string name="title_home">Herramienta de Campo Solar</string>
+    <string name="app_name">PE-Field</string>
+    <string name="title_home">PE-Field</string>
     <string name="search_fault_codes">Buscar Códigos de Falla...</string>
     <string name="troubleshooting_steps">Pasos de Solución</string>
     <string name="loading">Cargando...</string>

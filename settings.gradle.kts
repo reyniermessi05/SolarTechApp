@@ -15,5 +15,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "SolarApp"
+rootProject.name = "PE-Field"
 include(":app")
