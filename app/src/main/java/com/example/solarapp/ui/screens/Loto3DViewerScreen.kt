@@ -205,8 +205,8 @@ private val HEM_GEN2_STATUSES = listOf(
 
 private fun getGreenStatusesForCabinet(cabinetId: String): List<LotoStatusOption> {
     val greenCodes = when (cabinetId) {
-        "2", "12", "25" -> emptyList()
-        "1", "6", "7", "24" -> listOf("2", "5A")
+        "12" -> emptyList()
+        "1", "2", "6", "7", "24", "25" -> listOf("2", "5A")
         "13", "14", "16" -> listOf("2", "4")
         "3", "4", "5", "8", "9", "10", "11", "15", "17", "18", "19", "20", "21", "22", "23" ->
             listOf("2", "3B", "4", "5A")
@@ -591,6 +591,37 @@ fun Loto3DViewerScreen(
                                                     modifier = Modifier.size(18.dp)
                                                 )
                                             }
+                                        }
+                                    }
+                                }
+                                if (cabinet.cabinetId == "2" || cabinet.cabinetId == "6" || cabinet.cabinetId == "25") {
+                                    Surface(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .border(
+                                                width = 1.dp,
+                                                color = ComposeColor(0x88C084FC),
+                                                shape = RoundedCornerShape(12.dp)
+                                            ),
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = ComposeColor(0x26C084FC)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                            verticalAlignment = Alignment.Top
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Warning,
+                                                contentDescription = null,
+                                                tint = ComposeColor(0xFFC084FC),
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Text(
+                                                text = stringResource(R.string.loto_purple_area_warning),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = ComposeColor(0xFFF3F4F6)
+                                            )
                                         }
                                     }
                                 }
