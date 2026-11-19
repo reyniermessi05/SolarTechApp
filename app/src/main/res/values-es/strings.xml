@@ -37,4 +37,5 @@
     <string name="loto_empty_purple_status">Este gabinete no tiene ningún estado LOTOTO en verde (desenergizado). Permanece en Púrpura (energizado, trabajo solo con EPP bajo condiciones específicas) en los estados 2 y 5A, y en Rojo en el resto.</string>
     <string name="loto_empty_generic_status">Este gabinete no tiene estados LOTOTO en verde disponibles.</string>
     <string name="loto_status_info">Información del estado</string>
+    <string name="loto_purple_area_warning">⚠️ Área Púrpura (Situación Específica): Este gabinete solo se considera desenergizado (verde) en los estados 2 y 5A si las cajas de strings del campo fotovoltaico desconectan el polo positivo y negativo, o si el trabajo se realiza en horario nocturno.</string>
 </resources>
