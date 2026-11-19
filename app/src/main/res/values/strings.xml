@@ -18,4 +18,12 @@
     <string name="loto_continue_button">Continue</string>
     <string name="loto_cancel_button">Cancel</string>
     <string name="loto_reset_view">Reset 3D view</string>
+    <string name="loto_select_status">Select Status</string>
+    <string name="loto_select_status_title">Select LOTOTO Status</string>
+    <string name="loto_clear_status">Clear Status (Default View)</string>
+    <string name="loto_type_of_activities">Type of activities</string>
+    <string name="loto_legend_green">De-energized area, work is allowed</string>
+    <string name="loto_legend_red">Energized area, work is not allowed</string>
+    <string name="loto_legend_yellow">Energized area, PPE checks only</string>
+    <string name="loto_legend_purple">Energized area, work only with PPE</string>
 </resources>

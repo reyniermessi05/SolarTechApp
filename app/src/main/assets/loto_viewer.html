@@ -144,6 +144,7 @@
             // Interactive cabinet door registry & selection state
             const focusVignette = document.getElementById('focus-vignette');
             let clickableDoors = [];
+            let roofBlockerMesh = null;
             let selectedDoor = null;
             let camAnim = null;
             let previousCameraPos = null;
@@ -943,6 +944,7 @@
                     // #1 Upper ("DU Cabinet") & #2 Lower ("Field Inputs")
                     addClickableDoor(0.004, upper68H - 0.014, colW - 0.016, leftX - 0.001, upper68CenterY, colZ, {
                         cabinetId: '1',
+                        leftColIndex: c,
                         nameEn: 'DU Cabinet',
                         nameEs: 'Gabinete DU',
                         isGridConnection: false,
@@ -1057,9 +1059,24 @@
                 addBox(0.024, 0.20, 0.036, rightX + 0.012, bodyCenterY, +0.09, matLatch);
                 // Solid top plenum (+X): no vent
 
+                // Solid invisible roof/plenum touch blocker (prevents raycasts passing through roof onto doors behind/below)
+                const blockerMat = new THREE.MeshBasicMaterial({
+                    transparent: true,
+                    opacity: 0,
+                    depthWrite: false,
+                    colorWrite: false
+                });
+                roofBlockerMesh = new THREE.Mesh(
+                    new THREE.BoxGeometry(plenumL + 0.02, plenumH + 0.02, plenumW + 0.02),
+                    blockerMat
+                );
+                roofBlockerMesh.position.set(0, plenumCenterY, 0);
+                roofBlockerMesh.userData = { isBlocker: true };
+                root.add(roofBlockerMesh);
+
                 // Enable realistic shadow casting and receiving across all inverter meshes
                 root.traverse(function (obj) {
-                    if (obj.isMesh) {
+                    if (obj.isMesh && !obj.userData.isBlocker) {
                         const isTransparent = obj.material && obj.material.transparent;
                         obj.castShadow = !isTransparent;
                         obj.receiveShadow = true;
@@ -1072,6 +1089,7 @@
             function clearEquipmentGroup() {
                 clearFocusDimming();
                 clickableDoors = [];
+                roofBlockerMesh = null;
                 camAnim = null;
                 previousCameraPos = null;
                 previousControlsTarget = null;
@@ -1195,6 +1213,74 @@
                 }
             };
 
+            const STATUS_COLORS = {
+                DEFAULT: 0xD2D6DA,
+                GREEN: 0x4ADE80,
+                RED: 0xF87171,
+                YELLOW: 0xFACC15,
+                PURPLE: 0xC084FC
+            };
+
+            function getStatusColorForDoor(statusCode, meta) {
+                const id = meta.cabinetId;
+                switch (statusCode) {
+                    case '1A':
+                        return STATUS_COLORS.RED;
+                    case '2':
+                        if (id === '1') return STATUS_COLORS.PURPLE;
+                        if (id === '2' || id === '12') return STATUS_COLORS.RED;
+                        return STATUS_COLORS.GREEN;
+                    case '3A':
+                        if (id === '1') {
+                            return meta.leftColIndex === 0 ? STATUS_COLORS.PURPLE : STATUS_COLORS.RED;
+                        }
+                        if (id === '2' || id === '6' || id === '12' || id === '13' || id === '14' || id === '23' || id === '25') {
+                            return STATUS_COLORS.RED;
+                        }
+                        return STATUS_COLORS.YELLOW;
+                    case '3B':
+                        if (id === '1' || id === '2' || id === '6' || id === '12' || id === '14' || id === '23' || id === '25') {
+                            return STATUS_COLORS.RED;
+                        }
+                        return STATUS_COLORS.GREEN;
+                    case '4':
+                        if (id === '9' || id === '10' || id === '11' || id === '13' ||
+                            id === '14' || id === '15' || id === '16' || id === '17' || id === '18' || id === '19') {
+                            return STATUS_COLORS.GREEN;
+                        }
+                        return STATUS_COLORS.RED;
+                    case '5A':
+                        if (id === '1') return STATUS_COLORS.PURPLE;
+                        if (id === '2' || id === '12' || id === '13' ||
+                            id === '14' || id === '15' || id === '16' || id === '17' || id === '18') {
+                            return STATUS_COLORS.RED;
+                        }
+                        return STATUS_COLORS.GREEN;
+                    case '6':
+                        if (id === '1' || id === '2' || id === '6' || id === '12' || id === '13' ||
+                            id === '14' || id === '15' || id === '16' || id === '17' || id === '18' ||
+                            id === '23' || id === '25') {
+                            return STATUS_COLORS.RED;
+                        }
+                        return STATUS_COLORS.YELLOW;
+                    default:
+                        return STATUS_COLORS.DEFAULT;
+                }
+            }
+
+            window.applyLotoStatusColors = function (statusCode) {
+                window.resetToInitialOverview();
+                const code = (statusCode || '').trim();
+                clickableDoors.forEach(function (door) {
+                    const hex = getStatusColorForDoor(code, door.userData || {});
+                    if (door.material && door.material.color) {
+                        door.material.color.setHex(hex);
+                        door.material.userData._savedOrig = true;
+                        door.material.userData._origColor = door.material.color.clone();
+                    }
+                });
+            };
+
             // Raycaster tap detection (distinguishes short tap from drag/orbit)
             const raycaster = new THREE.Raycaster();
             const pointerNdc = new THREE.Vector2();
@@ -1230,9 +1316,14 @@
                 pointerNdc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
                 raycaster.setFromCamera(pointerNdc, camera);
-                const hits = raycaster.intersectObjects(clickableDoors, false);
+                const targets = roofBlockerMesh ? clickableDoors.concat([roofBlockerMesh]) : clickableDoors;
+                const hits = raycaster.intersectObjects(targets, false);
                 if (hits.length > 0) {
                     const hitDoor = hits[0].object;
+                    // Solid roof blocker intercepts clicks without selecting or highlighting anything
+                    if (hitDoor === roofBlockerMesh || (hitDoor.userData && hitDoor.userData.isBlocker)) {
+                        return;
+                    }
                     if (!selectedDoor) {
                         previousCameraPos = camera.position.clone();
                         previousControlsTarget = controls.target.clone();
