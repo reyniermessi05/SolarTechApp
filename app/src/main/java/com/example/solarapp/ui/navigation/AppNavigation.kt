@@ -3,6 +3,7 @@ package com.example.solarapp.ui.navigation
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -70,6 +71,7 @@ fun AppNavigation() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     var lotoResetTrigger by remember { mutableIntStateOf(0) }
+    var lotoHelpTrigger by remember { mutableIntStateOf(0) }
     
     // Determine title dynamically
     val currentTitle = when {
@@ -139,6 +141,13 @@ fun AppNavigation() {
                             )
                         }
                     } else if (currentRoute?.startsWith("loto3d/") == true) {
+                        IconButton(onClick = { lotoHelpTrigger++ }) {
+                            Icon(
+                                imageVector = Icons.Outlined.Info,
+                                contentDescription = androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.loto_visual_help),
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
                         IconButton(onClick = { lotoResetTrigger++ }) {
                             Icon(
                                 imageVector = Icons.Rounded.RestartAlt,
@@ -242,6 +251,7 @@ fun AppNavigation() {
                     equipmentName = equipmentName,
                     modelFileName = modelFileName,
                     resetViewTrigger = lotoResetTrigger,
+                    helpTrigger = lotoHelpTrigger,
                     onApplyLoto = { equip, cabinet ->
                         navController.navigate(Screen.LotoSteps.createRoute(equip, cabinet))
                     }

@@ -1,6 +1,8 @@
 package com.example.solarapp.ui.screens
 
 import android.annotation.SuppressLint
+import android.content.Context
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.net.Uri
 import android.os.Handler
@@ -21,14 +23,19 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -38,11 +45,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Warning
@@ -61,6 +73,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -69,12 +82,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.webkit.WebViewAssetLoader
 import com.example.solarapp.R
 
@@ -173,12 +193,34 @@ private class LotoAndroidBridge(
     }
 }
 
+private fun loadLotoHelpBitmap(context: Context, index: Int): ImageBitmap? {
+    val candidates = listOf(
+        "loto_help/$index.png",
+        "loto_help/$index.jpg",
+        "loto_help/$index.jpeg",
+        "$index.png",
+        "$index.jpg",
+        "$index.jpeg"
+    )
+    for (path in candidates) {
+        try {
+            context.assets.open(path).use { stream ->
+                val bmp = BitmapFactory.decodeStream(stream)
+                if (bmp != null) return bmp.asImageBitmap()
+            }
+        } catch (_: Exception) {
+        }
+    }
+    return null
+}
+
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun Loto3DViewerScreen(
     equipmentName: String,
     modelFileName: String,
     resetViewTrigger: Int = 0,
+    helpTrigger: Int = 0,
     onApplyLoto: (equipmentName: String, cabinetName: String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
@@ -198,8 +240,11 @@ fun Loto3DViewerScreen(
     var showGridDangerDialog by remember { mutableStateOf(false) }
     var activeStatus by remember { mutableStateOf<LotoStatusOption?>(null) }
     var showStatusDialog by remember { mutableStateOf(false) }
+    var showVisualHelpGallery by remember { mutableStateOf(false) }
+    var lightboxPhotoIndex by remember { mutableStateOf<Int?>(null) }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var lastHandledReset by remember { mutableIntStateOf(resetViewTrigger) }
+    var lastHandledHelp by remember { mutableIntStateOf(helpTrigger) }
 
     val applyStatus: (LotoStatusOption?) -> Unit = { status ->
         showStatusDialog = false
@@ -222,6 +267,13 @@ fun Loto3DViewerScreen(
                 "if (typeof resetToInitialOverview === 'function') { resetToInitialOverview(); }",
                 null
             )
+        }
+    }
+
+    LaunchedEffect(helpTrigger) {
+        if (helpTrigger != lastHandledHelp) {
+            lastHandledHelp = helpTrigger
+            showVisualHelpGallery = true
         }
     }
 
@@ -682,6 +734,209 @@ fun Loto3DViewerScreen(
                     }
                 }
             )
+        }
+
+        if (showVisualHelpGallery) {
+            val helpIndices = remember { (1..14).toList() }
+            Dialog(
+                onDismissRequest = { showVisualHelpGallery = false },
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth(0.92f)
+                        .fillMaxHeight(0.80f),
+                    shape = RoundedCornerShape(18.dp),
+                    color = ComposeColor(0xFF1A1A1A),
+                    contentColor = ComposeColor.White
+                ) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.loto_visual_help),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = ComposeColor.White
+                            )
+                            IconButton(onClick = { showVisualHelpGallery = false }) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.loto_close),
+                                    tint = ComposeColor.White
+                                )
+                            }
+                        }
+
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(3),
+                            contentPadding = PaddingValues(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            items(helpIndices) { index ->
+                                val bitmap = remember(index) { loadLotoHelpBitmap(context, index) }
+                                Box(
+                                    modifier = Modifier
+                                        .aspectRatio(1f)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(ComposeColor(0xFF2A2A2A))
+                                        .border(1.dp, ComposeColor(0x33FFFFFF), RoundedCornerShape(10.dp))
+                                        .clickable { lightboxPhotoIndex = index }
+                                ) {
+                                    if (bitmap != null) {
+                                        Image(
+                                            bitmap = bitmap,
+                                            contentDescription = stringResource(R.string.loto_visual_help_step, index),
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.TopStart)
+                                            .padding(6.dp)
+                                            .clip(CircleShape)
+                                            .background(ComposeColor(0xCC111827))
+                                            .padding(horizontal = 7.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = index.toString(),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = ComposeColor.White
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        lightboxPhotoIndex?.let { currentIndex ->
+            Dialog(
+                onDismissRequest = { lightboxPhotoIndex = null },
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                var zoomScale by remember(currentIndex) { mutableFloatStateOf(1f) }
+                var panX by remember(currentIndex) { mutableFloatStateOf(0f) }
+                var panY by remember(currentIndex) { mutableFloatStateOf(0f) }
+                val bitmap = remember(currentIndex) { loadLotoHelpBitmap(context, currentIndex) }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(ComposeColor(0xF50A0A0A))
+                ) {
+                    if (bitmap != null) {
+                        Image(
+                            bitmap = bitmap,
+                            contentDescription = stringResource(R.string.loto_visual_help_step, currentIndex),
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .pointerInput(currentIndex) {
+                                    detectTapGestures(
+                                        onDoubleTap = {
+                                            if (zoomScale > 1.2f) {
+                                                zoomScale = 1f
+                                                panX = 0f
+                                                panY = 0f
+                                            } else {
+                                                zoomScale = 2.5f
+                                            }
+                                        }
+                                    )
+                                }
+                                .pointerInput(currentIndex) {
+                                    detectTransformGestures { _, pan, zoom, _ ->
+                                        val nextScale = (zoomScale * zoom).coerceIn(1f, 4f)
+                                        zoomScale = nextScale
+                                        if (nextScale > 1f) {
+                                            panX += pan.x
+                                            panY += pan.y
+                                        } else {
+                                            panX = 0f
+                                            panY = 0f
+                                        }
+                                    }
+                                }
+                                .graphicsLayer(
+                                    scaleX = zoomScale,
+                                    scaleY = zoomScale,
+                                    translationX = panX,
+                                    translationY = panY
+                                )
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.TopCenter)
+                            .background(ComposeColor(0x99000000))
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.loto_visual_help_step, currentIndex),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = ComposeColor.White
+                        )
+                        IconButton(onClick = { lightboxPhotoIndex = null }) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = stringResource(R.string.loto_close),
+                                tint = ComposeColor.White
+                            )
+                        }
+                    }
+
+                    if (currentIndex > 1) {
+                        IconButton(
+                            onClick = { lightboxPhotoIndex = currentIndex - 1 },
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .padding(12.dp)
+                                .clip(CircleShape)
+                                .background(ComposeColor(0x991E1E1E))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ChevronLeft,
+                                contentDescription = stringResource(R.string.loto_previous_photo),
+                                tint = ComposeColor.White
+                            )
+                        }
+                    }
+
+                    if (currentIndex < 14) {
+                        IconButton(
+                            onClick = { lightboxPhotoIndex = currentIndex + 1 },
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(12.dp)
+                                .clip(CircleShape)
+                                .background(ComposeColor(0x991E1E1E))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = stringResource(R.string.loto_next_photo),
+                                tint = ComposeColor.White
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
