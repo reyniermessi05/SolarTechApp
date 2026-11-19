@@ -50,7 +50,7 @@ import com.example.solarapp.ui.screens.PlaceholderScreen
 import com.example.solarapp.ui.screens.TroubleshootingScreen
 
 sealed class Screen(val route: String, val title: String) {
-    object Home : Screen("home", "Solar Field Tool")
+    object Home : Screen("home", "PE-Field")
     object Troubleshooting : Screen("troubleshooting", "Troubleshooting")
     object Loto : Screen("loto", "LOTO")
     object Loto3DViewer : Screen("loto3d/{equipmentName}/{modelFileName}", "LOTO 3D") {
