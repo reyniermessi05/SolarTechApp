@@ -1689,26 +1689,18 @@
                     }
                 });
 
-                const centralDoor = clickableDoors.find(function (d) {
-                    return d.userData && d.userData.cabinetId === '11';
-                });
-                if (centralDoor && panelAnimRefs) {
-                    controls.minDistance = 1.15;
-                    const focusPt = new THREE.Vector3(
-                        panelAnimRefs.dcButton.position.x + 0.10,
-                        panelAnimRefs.dcButton.position.y + 0.04,
-                        W / 2
-                    );
-                    const normal = new THREE.Vector3(0, 0.04, 1).normalize();
+                if (currentModelFile === 'model_hem2.glb') {
+                    const pose = getHemGen2OverviewPose(false);
                     const fovRad = THREE.MathUtils.degToRad(camera.fov);
                     const hFovRad = 2 * Math.atan(Math.tan(fovRad / 2) * camera.aspect);
-                    const dist = Math.max(1.30, 0.68 / Math.tan(hFovRad / 2));
-                    const up = new THREE.Vector3(0, 1, 0);
-                    const rightVec = new THREE.Vector3().crossVectors(normal.clone().negate(), up).normalize();
+                    const dir = pose.position.clone().sub(pose.target);
+                    const dist = dir.length();
+                    const forward = dir.clone().negate().normalize();
+                    const rightVec = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
                     const halfSpanX = dist * Math.tan(hFovRad / 2);
-                    const endTarget = focusPt.clone().add(rightVec.multiplyScalar(halfSpanX * 0.44));
-                    const endPos = endTarget.clone().add(normal.multiplyScalar(dist));
-                    startCameraAnimation(endPos, endTarget, 550);
+                    const shiftedTarget = pose.target.clone().add(rightVec.multiplyScalar(halfSpanX * 0.35));
+                    const shiftedPos = shiftedTarget.clone().add(dir);
+                    startCameraAnimation(shiftedPos, shiftedTarget, 550);
                 }
             };
 
@@ -1729,10 +1721,46 @@
 
             window.playLotoLockSequence = function () {
                 resetLotoPanelAnimation();
-                lotoSeqAnim = {
-                    startTime: performance.now(),
-                    duration: 4500
-                };
+                const centralDoor = clickableDoors.find(function (d) {
+                    return d.userData && d.userData.cabinetId === '11';
+                });
+                if (centralDoor && panelAnimRefs) {
+                    controls.minDistance = 0.85;
+                    const focusPt = new THREE.Vector3(
+                        panelAnimRefs.dcButton.position.x + 0.10,
+                        panelAnimRefs.dcButton.position.y + 0.04,
+                        W / 2
+                    );
+                    const normal = new THREE.Vector3(0, 0.03, 1).normalize();
+                    const fovRad = THREE.MathUtils.degToRad(camera.fov);
+                    const hFovRad = 2 * Math.atan(Math.tan(fovRad / 2) * camera.aspect);
+                    const dist = Math.max(0.95, 0.50 / Math.tan(hFovRad / 2));
+                    const up = new THREE.Vector3(0, 1, 0);
+                    const rightVec = new THREE.Vector3().crossVectors(normal.clone().negate(), up).normalize();
+                    const halfSpanX = dist * Math.tan(hFovRad / 2);
+                    const endTarget = focusPt.clone().add(rightVec.multiplyScalar(halfSpanX * 0.44));
+                    const endPos = endTarget.clone().add(normal.multiplyScalar(dist));
+
+                    camAnim = {
+                        startPos: camera.position.clone(),
+                        startTarget: controls.target.clone(),
+                        endPos: endPos,
+                        endTarget: endTarget,
+                        startTime: performance.now(),
+                        duration: 1100,
+                        onComplete: function () {
+                            lotoSeqAnim = {
+                                startTime: performance.now(),
+                                duration: 4200
+                            };
+                        }
+                    };
+                } else {
+                    lotoSeqAnim = {
+                        startTime: performance.now(),
+                        duration: 4200
+                    };
+                }
             };
 
             // Render loop
@@ -1745,7 +1773,11 @@
                     camera.position.lerpVectors(camAnim.startPos, camAnim.endPos, ease);
                     controls.target.lerpVectors(camAnim.startTarget, camAnim.endTarget, ease);
                     if (t >= 1) {
+                        const onDone = camAnim.onComplete;
                         camAnim = null;
+                        if (typeof onDone === 'function') {
+                            onDone();
+                        }
                     }
                 }
                 if (lotoSeqAnim && panelAnimRefs) {

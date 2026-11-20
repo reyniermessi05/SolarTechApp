@@ -1664,7 +1664,7 @@ fun Loto3DViewerScreen(
 
                         if (status.code != "1A") {
                             Button(
-                                onClick = { onApplyLoto(equipmentName, localizedTitle) },
+                                onClick = { enterApplyLotoFlow(status, localizedTitle, false) },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = ComposeColor(0xFF1565C0),
