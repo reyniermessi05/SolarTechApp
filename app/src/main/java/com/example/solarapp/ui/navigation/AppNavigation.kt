@@ -84,7 +84,8 @@ fun AppNavigation() {
     val currentRoute = navBackStackEntry?.destination?.route
     var lotoResetTrigger by remember { mutableIntStateOf(0) }
     var lotoHelpTrigger by remember { mutableIntStateOf(0) }
-    
+    var lotoCompletedTitle by remember { mutableStateOf<String?>(null) }
+
     // Determine title dynamically
     val currentTitle = when {
         currentRoute == Screen.Home.route -> androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.title_home)
@@ -106,7 +107,7 @@ fun AppNavigation() {
             faultCode
         }
         currentRoute?.startsWith("loto3d/") == true -> {
-            androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.loto_select_cabinet_title)
+            lotoCompletedTitle ?: androidx.compose.ui.res.stringResource(com.example.solarapp.R.string.loto_select_cabinet_title)
         }
         currentRoute?.startsWith("lotoSteps/") == true -> {
             val cabinetName = Uri.decode(navBackStackEntry?.arguments?.getString("cabinetName") ?: "")
