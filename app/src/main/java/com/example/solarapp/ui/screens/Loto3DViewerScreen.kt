@@ -214,6 +214,19 @@ private fun getGreenStatusesForCabinet(cabinetId: String): List<LotoStatusOption
     return HEM_GEN2_STATUSES.filter { it.code in greenCodes }
 }
 
+private fun getCompatibleStatusesForCabinets(cabinets: List<SelectedCabinet>): List<LotoStatusOption> {
+    if (cabinets.isEmpty()) return emptyList()
+    var allowedCodes = getGreenStatusesForCabinet(cabinets.first().cabinetId).map { it.code }.toSet()
+    for (i in 1 until cabinets.size) {
+        val nextCodes = getGreenStatusesForCabinet(cabinets[i].cabinetId).map { it.code }.toSet()
+        allowedCodes = allowedCodes.intersect(nextCodes)
+    }
+    val canonicalOrder = listOf("2", "3B", "4", "5A")
+    return canonicalOrder.mapNotNull { code ->
+        if (code in allowedCodes) HEM_GEN2_STATUSES.find { it.code == code } else null
+    }
+}
+
 private data class SelectedCabinet(
     val cabinetId: String,
     val nameEn: String,
@@ -279,6 +292,9 @@ fun Loto3DViewerScreen(
 
     var selectedCabinet by remember { mutableStateOf<SelectedCabinet?>(null) }
     var selectedCabinetStatus by remember { mutableStateOf<LotoStatusOption?>(null) }
+    var isMultiSelectMode by remember { mutableStateOf(false) }
+    var multiSelectedCabinets by remember { mutableStateOf<List<SelectedCabinet>>(emptyList()) }
+    var multiSelectedStatus by remember { mutableStateOf<LotoStatusOption?>(null) }
     var infoStatusDialogOption by remember { mutableStateOf<LotoStatusOption?>(null) }
     var showGridDangerDialog by remember { mutableStateOf(false) }
     var activeStatus by remember { mutableStateOf<LotoStatusOption?>(null) }
@@ -289,12 +305,37 @@ fun Loto3DViewerScreen(
     var lastHandledReset by remember { mutableIntStateOf(resetViewTrigger) }
     var lastHandledHelp by remember { mutableIntStateOf(helpTrigger) }
 
+    val syncMultiSelectToWebView: (List<SelectedCabinet>) -> Unit = { list ->
+        val jsonArray = list.joinToString(prefix = "[", postfix = "]") {
+            "\"${it.cabinetId.replace("\"", "\\\"")}\""
+        }
+        webViewRef?.evaluateJavascript(
+            "if (typeof setMultiSelectedCabinets === 'function') { setMultiSelectedCabinets($jsonArray); }",
+            null
+        )
+    }
+
+    val exitMultiSelectMode: () -> Unit = {
+        isMultiSelectMode = false
+        multiSelectedCabinets = emptyList()
+        multiSelectedStatus = null
+        showGridDangerDialog = false
+        infoStatusDialogOption = null
+        webViewRef?.evaluateJavascript(
+            "if (typeof exitMultiSelectMode === 'function') { exitMultiSelectMode(); }",
+            null
+        )
+    }
+
     val applyStatus: (LotoStatusOption?) -> Unit = { status ->
         showStatusDialog = false
         showGridDangerDialog = false
         infoStatusDialogOption = null
         selectedCabinetStatus = null
         selectedCabinet = null
+        isMultiSelectMode = false
+        multiSelectedCabinets = emptyList()
+        multiSelectedStatus = null
         activeStatus = status
         val code = status?.code ?: ""
         webViewRef?.evaluateJavascript(
@@ -310,6 +351,9 @@ fun Loto3DViewerScreen(
             infoStatusDialogOption = null
             selectedCabinetStatus = null
             selectedCabinet = null
+            isMultiSelectMode = false
+            multiSelectedCabinets = emptyList()
+            multiSelectedStatus = null
             webViewRef?.evaluateJavascript(
                 "if (typeof resetToInitialOverview === 'function') { resetToInitialOverview(); }",
                 null
@@ -367,8 +411,23 @@ fun Loto3DViewerScreen(
                         LotoAndroidBridge { id, nameEn, nameEs, isGrid ->
                             showGridDangerDialog = false
                             infoStatusDialogOption = null
-                            selectedCabinetStatus = null
-                            selectedCabinet = SelectedCabinet(id, nameEn, nameEs, isGrid)
+                            if (isMultiSelectMode) {
+                                val exists = multiSelectedCabinets.any { it.cabinetId == id }
+                                val updated = if (exists) {
+                                    multiSelectedCabinets.filterNot { it.cabinetId == id }
+                                } else {
+                                    multiSelectedCabinets + SelectedCabinet(id, nameEn, nameEs, isGrid)
+                                }
+                                multiSelectedCabinets = updated
+                                val eligibleCodes = getCompatibleStatusesForCabinets(updated).map { it.code }
+                                if (multiSelectedStatus?.code !in eligibleCodes) {
+                                    multiSelectedStatus = null
+                                }
+                                syncMultiSelectToWebView(updated)
+                            } else {
+                                selectedCabinetStatus = null
+                                selectedCabinet = SelectedCabinet(id, nameEn, nameEs, isGrid)
+                            }
                         },
                         "AndroidBridge"
                     )
@@ -671,6 +730,35 @@ fun Loto3DViewerScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            FilledTonalButton(
+                                onClick = {
+                                    isMultiSelectMode = true
+                                    multiSelectedCabinets = listOf(cabinet)
+                                    multiSelectedStatus = selectedCabinetStatus
+                                    selectedCabinet = null
+                                    selectedCabinetStatus = null
+                                    showGridDangerDialog = false
+                                    infoStatusDialogOption = null
+                                    val escapedId = cabinet.cabinetId.replace("'", "\\'")
+                                    webViewRef?.evaluateJavascript(
+                                        "if (typeof enterMultiSelectMode === 'function') { enterMultiSelectMode('$escapedId'); }",
+                                        null
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = ComposeColor(0xFF2D3748),
+                                    contentColor = ComposeColor(0xFF90CAF9)
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.SelectAll,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(text = stringResource(R.string.loto_multiple_cabinets))
+                            }
                             Button(
                                 onClick = {
                                     if (isHighVoltageCorner) {
@@ -699,6 +787,317 @@ fun Loto3DViewerScreen(
                             ) {
                                 Text(text = stringResource(R.string.loto_back_button))
                             }
+                        }
+                    }
+                }
+            }
+        }
+
+        @OptIn(ExperimentalLayoutApi::class)
+        AnimatedVisibility(
+            visible = isMultiSelectMode,
+            enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
+            exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxWidth(0.45f)
+                .fillMaxHeight()
+                .padding(12.dp)
+        ) {
+            val eligibleStatuses = remember(multiSelectedCabinets) {
+                getCompatibleStatusesForCabinets(multiSelectedCabinets)
+            }
+            val hasPurpleCabinet = multiSelectedCabinets.any {
+                it.cabinetId == "2" || it.cabinetId == "6" || it.cabinetId == "25"
+            }
+            val hasHighVoltageCorner = multiSelectedCabinets.any {
+                it.isGridConnection || it.cabinetId == "12" || it.cabinetId == "13"
+            }
+            Card(
+                modifier = Modifier.fillMaxSize(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = ComposeColor(0xEE1E1E1E),
+                    contentColor = ComposeColor.White
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.loto_multi_cabinets_header, multiSelectedCabinets.size),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = ComposeColor(0xFF4ADE80),
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = exitMultiSelectMode,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = stringResource(R.string.loto_cancel_button),
+                                tint = ComposeColor.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    if (multiSelectedCabinets.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            multiSelectedCabinets.forEach { cab ->
+                                val cabLabel = if (isSpanish) cab.nameEs else cab.nameEn
+                                Surface(
+                                    shape = RoundedCornerShape(999.dp),
+                                    color = ComposeColor(0x264ADE80),
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(999.dp))
+                                        .border(1.dp, ComposeColor(0xFF4ADE80), RoundedCornerShape(999.dp))
+                                        .clickable {
+                                            val updated = multiSelectedCabinets.filterNot { it.cabinetId == cab.cabinetId }
+                                            multiSelectedCabinets = updated
+                                            val eligibleCodes = getCompatibleStatusesForCabinets(updated).map { it.code }
+                                            if (multiSelectedStatus?.code !in eligibleCodes) {
+                                                multiSelectedStatus = null
+                                            }
+                                            syncMultiSelectToWebView(updated)
+                                        }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Text(
+                                            text = cabLabel,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = ComposeColor.White
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = null,
+                                            tint = ComposeColor(0xFF4ADE80),
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (eligibleStatuses.isEmpty()) {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(
+                                        width = 1.dp,
+                                        color = ComposeColor(0x88F87171),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ),
+                                shape = RoundedCornerShape(12.dp),
+                                color = ComposeColor(0x26F87171)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalAlignment = Alignment.Top
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = null,
+                                        tint = ComposeColor(0xFFF87171),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.loto_multi_no_compatible_status),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = ComposeColor(0xFFF3F4F6)
+                                    )
+                                }
+                            }
+                        } else {
+                            eligibleStatuses.forEach { statusOption ->
+                                val isSelected = multiSelectedStatus?.code == statusOption.code
+                                val statusLabel = if (isSpanish) statusOption.titleEs else statusOption.titleEn
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .border(
+                                            width = if (isSelected) 1.5.dp else 1.dp,
+                                            color = if (isSelected) ComposeColor(0xFF4ADE80) else ComposeColor(0x44FFFFFF),
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                        .clickable {
+                                            multiSelectedStatus = if (isSelected) null else statusOption
+                                        },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isSelected) ComposeColor(0x264ADE80) else ComposeColor(0xFF2A2A2A)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(start = 10.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isSelected) {
+                                                Icons.Default.CheckCircle
+                                            } else {
+                                                Icons.Default.RadioButtonUnchecked
+                                            },
+                                            contentDescription = null,
+                                            tint = if (isSelected) ComposeColor(0xFF4ADE80) else ComposeColor(0xFF9CA3AF),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Text(
+                                            text = statusLabel,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                                            color = ComposeColor.White,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        IconButton(
+                                            onClick = { infoStatusDialogOption = statusOption },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Outlined.Info,
+                                                contentDescription = stringResource(R.string.loto_status_info),
+                                                tint = ComposeColor(0xFF90CAF9),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if (hasPurpleCabinet) {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(
+                                        width = 1.dp,
+                                        color = ComposeColor(0x88C084FC),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ),
+                                shape = RoundedCornerShape(12.dp),
+                                color = ComposeColor(0x26C084FC)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalAlignment = Alignment.Top
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = null,
+                                        tint = ComposeColor(0xFFC084FC),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.loto_purple_area_warning),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = ComposeColor(0xFFF3F4F6)
+                                    )
+                                }
+                            }
+                        }
+
+                        if (hasHighVoltageCorner) {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(
+                                        width = 1.dp,
+                                        color = ComposeColor(0x88F87171),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ),
+                                shape = RoundedCornerShape(12.dp),
+                                color = ComposeColor(0x26F87171)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalAlignment = Alignment.Top
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = null,
+                                        tint = ComposeColor(0xFFF87171),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.loto_grid_high_voltage_warning),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = ComposeColor(0xFFF3F4F6)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                if (hasHighVoltageCorner) {
+                                    showGridDangerDialog = true
+                                } else if (multiSelectedCabinets.isNotEmpty() && multiSelectedStatus != null) {
+                                    val joinedNames = multiSelectedCabinets.joinToString(", ") {
+                                        if (isSpanish) it.nameEs else it.nameEn
+                                    }
+                                    onApplyLoto(equipmentName, joinedNames)
+                                }
+                            },
+                            enabled = multiSelectedCabinets.isNotEmpty() && multiSelectedStatus != null,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (hasHighVoltageCorner) ComposeColor(0xFFC62828) else ComposeColor(0xFF1565C0),
+                                contentColor = ComposeColor.White,
+                                disabledContainerColor = ComposeColor(0xFF374151),
+                                disabledContentColor = ComposeColor(0xFF9CA3AF)
+                            )
+                        ) {
+                            Text(text = stringResource(R.string.loto_apply_button))
+                        }
+                        OutlinedButton(
+                            onClick = exitMultiSelectMode,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = ComposeColor.White
+                            )
+                        ) {
+                            Text(text = stringResource(R.string.loto_cancel_button))
                         }
                     }
                 }
@@ -749,7 +1148,41 @@ fun Loto3DViewerScreen(
             )
         }
 
-        if (modelFileName == "model_hem2.glb") {
+        if (isMultiSelectMode) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(12.dp),
+                shape = RoundedCornerShape(999.dp),
+                color = ComposeColor(0xEE1E1E1E),
+                contentColor = ComposeColor.White,
+                shadowElevation = 6.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .border(
+                            width = 1.dp,
+                            color = ComposeColor(0xFF4ADE80),
+                            shape = RoundedCornerShape(999.dp)
+                        )
+                        .padding(horizontal = 14.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.SelectAll,
+                        contentDescription = null,
+                        tint = ComposeColor(0xFF4ADE80),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = stringResource(R.string.loto_multi_select_banner),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        } else if (modelFileName == "model_hem2.glb") {
             Surface(
                 onClick = { showStatusDialog = true },
                 modifier = Modifier
@@ -987,9 +1420,15 @@ fun Loto3DViewerScreen(
             )
         }
 
-        if (showGridDangerDialog && selectedCabinet != null) {
-            val cabinet = selectedCabinet!!
-            val localizedCabinetName = if (isSpanish) cabinet.nameEs else cabinet.nameEn
+        if (showGridDangerDialog && (selectedCabinet != null || (isMultiSelectMode && multiSelectedCabinets.isNotEmpty()))) {
+            val targetCabinetLabel = if (isMultiSelectMode) {
+                multiSelectedCabinets.joinToString(", ") {
+                    if (isSpanish) it.nameEs else it.nameEn
+                }
+            } else {
+                val cabinet = selectedCabinet!!
+                if (isSpanish) cabinet.nameEs else cabinet.nameEn
+            }
             AlertDialog(
                 onDismissRequest = { showGridDangerDialog = false },
                 containerColor = ComposeColor(0xFF1E1E1E),
@@ -1022,7 +1461,7 @@ fun Loto3DViewerScreen(
                     Button(
                         onClick = {
                             showGridDangerDialog = false
-                            onApplyLoto(equipmentName, localizedCabinetName)
+                            onApplyLoto(equipmentName, targetCabinetLabel)
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = ComposeColor(0xFFDC2626),

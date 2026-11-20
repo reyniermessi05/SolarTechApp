@@ -1203,6 +1203,8 @@
             };
 
             window.resetToInitialOverview = function () {
+                isMultiSelectMode = false;
+                multiSelectedIds.clear();
                 clearFocusDimming();
                 previousCameraPos = null;
                 previousControlsTarget = null;
@@ -1314,6 +1316,49 @@
                 });
             };
 
+            let isMultiSelectMode = false;
+            let multiSelectedIds = new Set();
+
+            function updateMultiSelectVisuals() {
+                clickableDoors.forEach(function (door) {
+                    if (!door.material) return;
+                    const mats = Array.isArray(door.material) ? door.material : [door.material];
+                    const id = String((door.userData && door.userData.cabinetId) || '');
+                    const isSelected = multiSelectedIds.has(id);
+                    mats.forEach(function (mat) {
+                        saveMaterialOriginals(mat);
+                        if (isSelected) {
+                            if (mat.color) mat.color.setHex(0x4ADE80);
+                            if (mat.emissive) {
+                                mat.emissive.setHex(0x22C55E);
+                                mat.emissiveIntensity = 0.28;
+                            }
+                        } else {
+                            restoreMaterialOriginals(mat);
+                        }
+                    });
+                });
+            }
+
+            window.enterMultiSelectMode = function (initialCabinetId) {
+                isMultiSelectMode = true;
+                multiSelectedIds = new Set(initialCabinetId ? [String(initialCabinetId)] : []);
+                clearFocusDimming();
+                updateMultiSelectVisuals();
+                window.resetCameraView();
+            };
+
+            window.setMultiSelectedCabinets = function (idsArray) {
+                multiSelectedIds = new Set((idsArray || []).map(String));
+                updateMultiSelectVisuals();
+            };
+
+            window.exitMultiSelectMode = function () {
+                isMultiSelectMode = false;
+                multiSelectedIds.clear();
+                clearFocusDimming();
+            };
+
             // Raycaster tap detection (distinguishes short tap from drag/orbit)
             const raycaster = new THREE.Raycaster();
             const pointerNdc = new THREE.Vector2();
@@ -1357,12 +1402,14 @@
                     if (hitDoor === roofBlockerMesh || (hitDoor.userData && hitDoor.userData.isBlocker)) {
                         return;
                     }
-                    if (!selectedDoor) {
-                        previousCameraPos = camera.position.clone();
-                        previousControlsTarget = controls.target.clone();
+                    if (!isMultiSelectMode) {
+                        if (!selectedDoor) {
+                            previousCameraPos = camera.position.clone();
+                            previousControlsTarget = controls.target.clone();
+                        }
+                        applyFocusDimming(hitDoor);
+                        focusOnCabinet(hitDoor);
                     }
-                    applyFocusDimming(hitDoor);
-                    focusOnCabinet(hitDoor);
 
                     const meta = hitDoor.userData || {};
                     if (window.AndroidBridge && typeof window.AndroidBridge.onCabinetSelected === 'function') {
