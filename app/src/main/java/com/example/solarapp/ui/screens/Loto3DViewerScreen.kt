@@ -289,6 +289,7 @@ fun Loto3DViewerScreen(
     resetViewTrigger: Int = 0,
     helpTrigger: Int = 0,
     onApplyLoto: (equipmentName: String, cabinetName: String) -> Unit = { _, _ -> },
+    onCompletedStatusTitleChanged: (String?) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
