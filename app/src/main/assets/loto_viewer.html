@@ -890,6 +890,7 @@
                         root.add(mvPadlock);
 
                         panelAnimRefs = {
+                            overlayPlane: overlayPlane,
                             keyGroup: keyGroup,
                             keyBaseX: topXs[0],
                             keyBaseY: topY,
@@ -1732,27 +1733,18 @@
                 try {
                     resetLotoPanelAnimation();
                     controls.enabled = false;
-                    const centralDoor = clickableDoors.find(function (d) {
-                        return d.userData && d.userData.cabinetId === '11';
-                    });
-                    if (centralDoor && panelAnimRefs) {
-                        controls.minDistance = 0.85;
-                        const doorBox = new THREE.Box3().setFromObject(centralDoor);
-                        const doorCenter = new THREE.Vector3();
-                        doorBox.getCenter(doorCenter);
-                        const focusPt = new THREE.Vector3(
-                            doorCenter.x - 0.02,
-                            doorCenter.y + 0.06,
-                            doorBox.max.z
-                        );
+                    if (panelAnimRefs && panelAnimRefs.overlayPlane) {
+                        controls.minDistance = 1.25;
+                        const focusPt = new THREE.Vector3();
+                        panelAnimRefs.overlayPlane.getWorldPosition(focusPt);
                         const normal = new THREE.Vector3(0, 0.03, 1).normalize();
                         const fovRad = THREE.MathUtils.degToRad(camera.fov);
                         const hFovRad = 2 * Math.atan(Math.tan(fovRad / 2) * camera.aspect);
-                        const dist = Math.max(0.95, 0.48 / Math.tan(hFovRad / 2));
+                        const dist = Math.max(1.55, 0.72 / Math.tan(hFovRad / 2));
                         const up = new THREE.Vector3(0, 1, 0);
                         const rightVec = new THREE.Vector3().crossVectors(normal.clone().negate(), up).normalize();
                         const halfSpanX = dist * Math.tan(hFovRad / 2);
-                        const endTarget = focusPt.clone().add(rightVec.multiplyScalar(halfSpanX * 0.44));
+                        const endTarget = focusPt.clone().add(rightVec.multiplyScalar(halfSpanX * 0.40));
                         const endPos = endTarget.clone().add(normal.multiplyScalar(dist));
 
                         camAnim = {
@@ -1794,6 +1786,8 @@
                     camera.position.lerpVectors(camAnim.startPos, camAnim.endPos, ease);
                     controls.target.lerpVectors(camAnim.startTarget, camAnim.endTarget, ease);
                     if (t >= 1) {
+                        camera.position.copy(camAnim.endPos);
+                        controls.target.copy(camAnim.endTarget);
                         const onDone = camAnim.onComplete;
                         camAnim = null;
                         if (typeof onDone === 'function') {

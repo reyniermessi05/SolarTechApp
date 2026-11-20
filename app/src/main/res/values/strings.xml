@@ -50,4 +50,7 @@
     <string name="loto_animation_caption">1. Key in OFF and remove key / Press DC Disconnect / MV Disconnect in OFF position</string>
     <string name="loto_final_completed">FINAL LOTO COMPLETED</string>
     <string name="loto_got_it">Got it</string>
+    <string name="loto_applied_status_header">Applied LOTO Status: %1$s</string>
+    <string name="loto_export_to_jha">Export Status to JHA</string>
+    <string name="loto_export_jha_coming_soon">Coming soon: Export to JHA</string>
 </resources>

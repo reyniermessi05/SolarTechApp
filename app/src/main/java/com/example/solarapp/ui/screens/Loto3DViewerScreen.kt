@@ -15,6 +15,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -45,6 +46,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -76,6 +78,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -436,6 +439,24 @@ fun Loto3DViewerScreen(
     LaunchedEffect(isMultiSelectMode, multiSelectedCabinets) {
         if (isMultiSelectMode && !isApplyingLoto) {
             syncMultiSelectToWebView(multiSelectedCabinets)
+        }
+    }
+
+    LaunchedEffect(isLotoCompleted, applyingLotoStatus, isSpanish) {
+        val status = applyingLotoStatus
+        if (isLotoCompleted && status != null) {
+            val statusTitle = if (isSpanish) status.titleEs else status.titleEn
+            onCompletedStatusTitleChanged(
+                context.getString(R.string.loto_applied_status_header, statusTitle)
+            )
+        } else {
+            onCompletedStatusTitleChanged(null)
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            onCompletedStatusTitleChanged(null)
         }
     }
 
@@ -1187,9 +1208,9 @@ fun Loto3DViewerScreen(
             enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
             exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut(),
             modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxWidth(0.45f)
-                .fillMaxHeight()
+                .align(Alignment.BottomEnd)
+                .fillMaxWidth(0.42f)
+                .wrapContentHeight()
                 .padding(12.dp)
         ) {
             applyingLotoStatus?.let { status ->
@@ -1199,7 +1220,9 @@ fun Loto3DViewerScreen(
                     highlightDoorColorPhrases(statusActivities)
                 }
                 Card(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = ComposeColor(0xEE1E1E1E),
@@ -1209,15 +1232,17 @@ fun Loto3DViewerScreen(
                 ) {
                     Column(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.SpaceBetween
+                            .fillMaxWidth()
+                            .wrapContentHeight()
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Column(
                             modifier = Modifier
-                                .weight(1f)
+                                .fillMaxWidth()
+                                .heightIn(max = 220.dp)
                                 .verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1266,36 +1291,53 @@ fun Loto3DViewerScreen(
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
-
                         Column(
                             modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Button(
-                                onClick = { showMarkCompletedDialog = true },
-                                enabled = !isLotoAnimating && !isLotoCompleted,
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = ComposeColor(0xFF15803D),
-                                    contentColor = ComposeColor.White,
-                                    disabledContainerColor = ComposeColor(0xFF374151),
-                                    disabledContentColor = ComposeColor(0xFF9CA3AF)
-                                )
-                            ) {
-                                Text(text = stringResource(R.string.loto_mark_completed))
-                            }
-                            OutlinedButton(
-                                onClick = {
-                                    val target = applyingLotoTargetLabel.ifBlank { statusTitle }
-                                    onApplyLoto(equipmentName, target)
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = ComposeColor(0xFF90CAF9)
-                                )
-                            ) {
-                                Text(text = stringResource(R.string.loto_step_by_step))
+                            if (isLotoCompleted) {
+                                Button(
+                                    onClick = {
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(R.string.loto_export_jha_coming_soon),
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = ComposeColor(0xFF1565C0),
+                                        contentColor = ComposeColor.White
+                                    )
+                                ) {
+                                    Text(text = stringResource(R.string.loto_export_to_jha))
+                                }
+                            } else {
+                                Button(
+                                    onClick = { showMarkCompletedDialog = true },
+                                    enabled = !isLotoAnimating,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = ComposeColor(0xFF15803D),
+                                        contentColor = ComposeColor.White,
+                                        disabledContainerColor = ComposeColor(0xFF374151),
+                                        disabledContentColor = ComposeColor(0xFF9CA3AF)
+                                    )
+                                ) {
+                                    Text(text = stringResource(R.string.loto_mark_completed))
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        val target = applyingLotoTargetLabel.ifBlank { statusTitle }
+                                        onApplyLoto(equipmentName, target)
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = ComposeColor(0xFF90CAF9)
+                                    )
+                                ) {
+                                    Text(text = stringResource(R.string.loto_step_by_step))
+                                }
                             }
                             OutlinedButton(
                                 onClick = exitApplyLotoFlow,
