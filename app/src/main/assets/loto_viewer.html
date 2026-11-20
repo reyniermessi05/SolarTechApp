@@ -1191,6 +1191,9 @@
 
             window.resetCameraView = function () {
                 clearFocusDimming();
+                if (isMultiSelectMode) {
+                    updateMultiSelectVisuals();
+                }
                 if (previousCameraPos && previousControlsTarget) {
                     const restorePos = previousCameraPos;
                     const restoreTarget = previousControlsTarget;

@@ -370,6 +370,12 @@ fun Loto3DViewerScreen(
         }
     }
 
+    LaunchedEffect(isMultiSelectMode, multiSelectedCabinets) {
+        if (isMultiSelectMode) {
+            syncMultiSelectToWebView(multiSelectedCabinets)
+        }
+    }
+
     val assetLoader = remember(context) {
         WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
@@ -1149,37 +1155,41 @@ fun Loto3DViewerScreen(
         }
 
         if (isMultiSelectMode) {
-            Surface(
+            Box(
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(12.dp),
-                shape = RoundedCornerShape(999.dp),
-                color = ComposeColor(0xEE1E1E1E),
-                contentColor = ComposeColor.White,
-                shadowElevation = 6.dp
+                    .fillMaxWidth(0.53f)
+                    .padding(start = 12.dp, top = 12.dp, end = 6.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .border(
-                            width = 1.dp,
-                            color = ComposeColor(0xFF4ADE80),
-                            shape = RoundedCornerShape(999.dp)
-                        )
-                        .padding(horizontal = 14.dp, vertical = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = ComposeColor(0xEE1E1E1E),
+                    contentColor = ComposeColor.White,
+                    shadowElevation = 6.dp
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Layers,
-                        contentDescription = null,
-                        tint = ComposeColor(0xFF4ADE80),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = stringResource(R.string.loto_multi_select_banner),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Row(
+                        modifier = Modifier
+                            .border(
+                                width = 1.dp,
+                                color = ComposeColor(0xFF4ADE80),
+                                shape = RoundedCornerShape(20.dp)
+                            )
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Layers,
+                            contentDescription = null,
+                            tint = ComposeColor(0xFF4ADE80),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = stringResource(R.string.loto_multi_select_banner),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         } else if (modelFileName == "model_hem2.glb") {
