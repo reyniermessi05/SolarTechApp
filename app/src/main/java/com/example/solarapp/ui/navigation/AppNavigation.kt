@@ -22,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import android.net.Uri
@@ -261,7 +262,8 @@ fun AppNavigation() {
                     helpTrigger = lotoHelpTrigger,
                     onApplyLoto = { equip, cabinet ->
                         navController.navigate(Screen.LotoSteps.createRoute(equip, cabinet))
-                    }
+                    },
+                    onCompletedStatusTitleChanged = { lotoCompletedTitle = it }
                 )
             }
             composable(

@@ -50,4 +50,7 @@
     <string name="loto_animation_caption">1. Llave en OFF y retirar llave / Presionar Desconectador DC / Desconectador de MT en posición OFF</string>
     <string name="loto_final_completed">LOTO FINAL COMPLETADO</string>
     <string name="loto_got_it">Entendido</string>
+    <string name="loto_applied_status_header">Estado LOTO Aplicado: %1$s</string>
+    <string name="loto_export_to_jha">Exportar Estado a JHA</string>
+    <string name="loto_export_jha_coming_soon">Próximamente: Exportación a JHA</string>
 </resources>
