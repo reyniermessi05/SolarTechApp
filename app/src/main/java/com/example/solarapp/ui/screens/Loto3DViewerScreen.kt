@@ -425,6 +425,9 @@ fun Loto3DViewerScreen(
                 val greenStatuses = remember(cabinet.cabinetId) {
                     getGreenStatusesForCabinet(cabinet.cabinetId)
                 }
+                val isHighVoltageCorner = cabinet.isGridConnection ||
+                    cabinet.cabinetId == "12" ||
+                    cabinet.cabinetId == "13"
                 Card(
                     modifier = Modifier.fillMaxSize(),
                     shape = RoundedCornerShape(16.dp),
@@ -448,7 +451,7 @@ fun Loto3DViewerScreen(
                                 text = localizedCabinetName,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = if (cabinet.isGridConnection || cabinet.cabinetId == "12") {
+                                color = if (isHighVoltageCorner) {
                                     ComposeColor(0xFFF87171)
                                 } else {
                                     ComposeColor(0xFF90CAF9)
