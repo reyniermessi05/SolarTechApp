@@ -449,7 +449,11 @@ fun Loto3DViewerScreen(
                                 text = localizedCabinetName,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = if (cabinet.isGridConnection) ComposeColor(0xFFEF5350) else ComposeColor(0xFF90CAF9),
+                                color = if (cabinet.isGridConnection || cabinet.cabinetId == "12") {
+                                    ComposeColor(0xFFF87171)
+                                } else {
+                                    ComposeColor(0xFF90CAF9)
+                                },
                                 modifier = Modifier.weight(1f)
                             )
                             IconButton(
@@ -619,6 +623,37 @@ fun Loto3DViewerScreen(
                                             )
                                             Text(
                                                 text = stringResource(R.string.loto_purple_area_warning),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = ComposeColor(0xFFF3F4F6)
+                                            )
+                                        }
+                                    }
+                                }
+                                if (cabinet.isGridConnection || cabinet.cabinetId == "12") {
+                                    Surface(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .border(
+                                                width = 1.dp,
+                                                color = ComposeColor(0x88F87171),
+                                                shape = RoundedCornerShape(12.dp)
+                                            ),
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = ComposeColor(0x26F87171)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                            verticalAlignment = Alignment.Top
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Warning,
+                                                contentDescription = null,
+                                                tint = ComposeColor(0xFFF87171),
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Text(
+                                                text = stringResource(R.string.loto_grid_high_voltage_warning),
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = ComposeColor(0xFFF3F4F6)
                                             )

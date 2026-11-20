@@ -38,4 +38,5 @@
     <string name="loto_empty_generic_status">This cabinet has no green LOTOTO statuses available.</string>
     <string name="loto_status_info">Status info</string>
     <string name="loto_purple_area_warning">⚠️ Purple Area (Specific Situation): This cabinet is only considered de-energized (green) under statuses 2 and 5A if the PV field string boxes disconnect both positive and negative poles, or if work is performed during nighttime.</string>
+    <string name="loto_grid_high_voltage_warning">⚠️ HIGH VOLTAGE DANGER: This cabinet is only considered de-energized under statuses 2 and 4 if the substation / grid is completely disconnected and isolated from the inverter.</string>
 </resources>
