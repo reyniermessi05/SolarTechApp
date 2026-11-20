@@ -1522,7 +1522,7 @@ fun Loto3DViewerScreen(
                     }
                 }
             }
-        } else if (modelFileName == "model_hem2.glb") {
+        } else if (modelFileName == "model_hem2.glb" && !isApplyingLoto) {
             Surface(
                 onClick = { showStatusDialog = true },
                 modifier = Modifier
