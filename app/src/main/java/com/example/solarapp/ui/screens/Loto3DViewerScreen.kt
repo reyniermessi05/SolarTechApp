@@ -45,6 +45,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -730,7 +732,7 @@ fun Loto3DViewerScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            FilledTonalButton(
+                            OutlinedButton(
                                 onClick = {
                                     isMultiSelectMode = true
                                     multiSelectedCabinets = listOf(cabinet)
@@ -746,13 +748,13 @@ fun Loto3DViewerScreen(
                                     )
                                 },
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.filledTonalButtonColors(
+                                colors = ButtonDefaults.outlinedButtonColors(
                                     containerColor = ComposeColor(0xFF2D3748),
                                     contentColor = ComposeColor(0xFF90CAF9)
                                 )
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.SelectAll,
+                                    imageVector = Icons.Default.Layers,
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -793,7 +795,6 @@ fun Loto3DViewerScreen(
             }
         }
 
-        @OptIn(ExperimentalLayoutApi::class)
         AnimatedVisibility(
             visible = isMultiSelectMode,
             enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
@@ -854,12 +855,11 @@ fun Loto3DViewerScreen(
 
                     if (multiSelectedCabinets.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(6.dp))
-                        FlowRow(
+                        LazyRow(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            multiSelectedCabinets.forEach { cab ->
+                            items(multiSelectedCabinets, key = { it.cabinetId }) { cab ->
                                 val cabLabel = if (isSpanish) cab.nameEs else cab.nameEn
                                 Surface(
                                     shape = RoundedCornerShape(999.dp),
@@ -1170,7 +1170,7 @@ fun Loto3DViewerScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.SelectAll,
+                        imageVector = Icons.Default.Layers,
                         contentDescription = null,
                         tint = ComposeColor(0xFF4ADE80),
                         modifier = Modifier.size(18.dp)
