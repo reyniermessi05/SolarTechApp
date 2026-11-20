@@ -740,6 +740,8 @@ fun Loto3DViewerScreen(
                         ) {
                             OutlinedButton(
                                 onClick = {
+                                    activeStatus = null
+                                    showStatusDialog = false
                                     isMultiSelectMode = true
                                     multiSelectedCabinets = listOf(cabinet)
                                     multiSelectedStatus = selectedCabinetStatus
@@ -1234,7 +1236,7 @@ fun Loto3DViewerScreen(
         }
 
         AnimatedVisibility(
-            visible = activeStatus != null && selectedCabinet == null,
+            visible = activeStatus != null && selectedCabinet == null && !isMultiSelectMode,
             enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
             exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
             modifier = Modifier
