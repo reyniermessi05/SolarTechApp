@@ -205,9 +205,8 @@ private val HEM_GEN2_STATUSES = listOf(
 
 private fun getGreenStatusesForCabinet(cabinetId: String): List<LotoStatusOption> {
     val greenCodes = when (cabinetId) {
-        "12" -> emptyList()
         "1", "2", "6", "7", "24", "25" -> listOf("2", "5A")
-        "13", "14", "16" -> listOf("2", "4")
+        "12", "13", "14", "16" -> listOf("2", "4")
         "3", "4", "5", "8", "9", "10", "11", "15", "17", "18", "19", "20", "21", "22", "23" ->
             listOf("2", "3B", "4", "5A")
         else -> emptyList()
@@ -629,7 +628,7 @@ fun Loto3DViewerScreen(
                                         }
                                     }
                                 }
-                                if (cabinet.isGridConnection || cabinet.cabinetId == "12") {
+                                if (isHighVoltageCorner) {
                                     Surface(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -671,7 +670,7 @@ fun Loto3DViewerScreen(
                         ) {
                             Button(
                                 onClick = {
-                                    if (cabinet.isGridConnection || cabinet.cabinetId == "12") {
+                                    if (isHighVoltageCorner) {
                                         showGridDangerDialog = true
                                     } else if (selectedCabinetStatus != null) {
                                         onApplyLoto(equipmentName, localizedCabinetName)
@@ -680,7 +679,7 @@ fun Loto3DViewerScreen(
                                 enabled = selectedCabinetStatus != null,
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (cabinet.isGridConnection) ComposeColor(0xFFC62828) else ComposeColor(0xFF1565C0),
+                                    containerColor = if (isHighVoltageCorner) ComposeColor(0xFFC62828) else ComposeColor(0xFF1565C0),
                                     contentColor = ComposeColor.White,
                                     disabledContainerColor = ComposeColor(0xFF374151),
                                     disabledContentColor = ComposeColor(0xFF9CA3AF)
