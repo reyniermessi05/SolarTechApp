@@ -43,4 +43,11 @@
     <string name="loto_multi_select_banner">Seleccione el resto de gabinetes donde trabajará</string>
     <string name="loto_multi_cabinets_header">Múltiples Gabinetes (%1$d)</string>
     <string name="loto_multi_no_compatible_status">Ningún estado LOTOTO es compatible con todos los gabinetes seleccionados. Deseleccione un gabinete para ver opciones compatibles.</string>
+    <string name="loto_mark_completed">Marcar como completado</string>
+    <string name="loto_step_by_step">Paso a Paso</string>
+    <string name="loto_mark_completed_confirm_message">¿Desea aplicar y marcar el estado LOTO como completado? Esto bloqueará los componentes correspondientes.</string>
+    <string name="loto_confirm_button">Confirmar</string>
+    <string name="loto_animation_caption">1. Llave en OFF y retirar llave / Presionar Desconectador DC / Desconectador de MT en posición OFF</string>
+    <string name="loto_final_completed">LOTO FINAL COMPLETADO</string>
+    <string name="loto_got_it">Entendido</string>
 </resources>
