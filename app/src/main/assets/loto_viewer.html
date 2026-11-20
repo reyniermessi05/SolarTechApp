@@ -1346,6 +1346,13 @@
             window.enterMultiSelectMode = function (initialCabinetId) {
                 isMultiSelectMode = true;
                 multiSelectedIds = new Set(initialCabinetId ? [String(initialCabinetId)] : []);
+                clickableDoors.forEach(function (door) {
+                    if (door.material && door.material.color) {
+                        door.material.color.setHex(STATUS_COLORS.DEFAULT);
+                        door.material.userData._savedOrig = true;
+                        door.material.userData._origColor = door.material.color.clone();
+                    }
+                });
                 clearFocusDimming();
                 updateMultiSelectVisuals();
                 window.resetCameraView();
