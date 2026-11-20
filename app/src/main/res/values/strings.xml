@@ -43,4 +43,11 @@
     <string name="loto_multi_select_banner">Select the remaining cabinets where you will work</string>
     <string name="loto_multi_cabinets_header">Multiple Cabinets (%1$d)</string>
     <string name="loto_multi_no_compatible_status">No compatible LOTOTO status is shared by all selected cabinets. Deselect a cabinet to see compatible options.</string>
+    <string name="loto_mark_completed">Mark as completed</string>
+    <string name="loto_step_by_step">Step-by-Step</string>
+    <string name="loto_mark_completed_confirm_message">Do you want to apply and mark the LOTO status as completed? This will lock the corresponding components.</string>
+    <string name="loto_confirm_button">Confirm</string>
+    <string name="loto_animation_caption">1. Key in OFF and remove key / Press DC Disconnect / MV Disconnect in OFF position</string>
+    <string name="loto_final_completed">FINAL LOTO COMPLETED</string>
+    <string name="loto_got_it">Got it</string>
 </resources>

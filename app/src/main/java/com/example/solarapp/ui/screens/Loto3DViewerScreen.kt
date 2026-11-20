@@ -237,7 +237,8 @@ private data class SelectedCabinet(
 )
 
 private class LotoAndroidBridge(
-    private val onSelected: (cabinetId: String, nameEn: String, nameEs: String, isGridConnection: Boolean) -> Unit
+    private val onSelected: (cabinetId: String, nameEn: String, nameEs: String, isGridConnection: Boolean) -> Unit,
+    private val onSequenceCompleted: () -> Unit = {}
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -245,6 +246,13 @@ private class LotoAndroidBridge(
     fun onCabinetSelected(cabinetId: String, nameEn: String, nameEs: String, isGridConnection: Boolean) {
         mainHandler.post {
             onSelected(cabinetId, nameEn, nameEs, isGridConnection)
+        }
+    }
+
+    @JavascriptInterface
+    fun onLotoSequenceCompleted() {
+        mainHandler.post {
+            onSequenceCompleted()
         }
     }
 }
@@ -297,6 +305,14 @@ fun Loto3DViewerScreen(
     var isMultiSelectMode by remember { mutableStateOf(false) }
     var multiSelectedCabinets by remember { mutableStateOf<List<SelectedCabinet>>(emptyList()) }
     var multiSelectedStatus by remember { mutableStateOf<LotoStatusOption?>(null) }
+    var isApplyingLoto by remember { mutableStateOf(false) }
+    var applyingLotoStatus by remember { mutableStateOf<LotoStatusOption?>(null) }
+    var applyingLotoTargetLabel by remember { mutableStateOf("") }
+    var applyingLotoFromMulti by remember { mutableStateOf(false) }
+    var showMarkCompletedDialog by remember { mutableStateOf(false) }
+    var isLotoAnimating by remember { mutableStateOf(false) }
+    var isLotoCompleted by remember { mutableStateOf(false) }
+    var lotoCompletedAcknowledged by remember { mutableStateOf(false) }
     var infoStatusDialogOption by remember { mutableStateOf<LotoStatusOption?>(null) }
     var showGridDangerDialog by remember { mutableStateOf(false) }
     var activeStatus by remember { mutableStateOf<LotoStatusOption?>(null) }
@@ -315,6 +331,43 @@ fun Loto3DViewerScreen(
             "if (typeof setMultiSelectedCabinets === 'function') { setMultiSelectedCabinets($jsonArray); }",
             null
         )
+    }
+
+    val enterApplyLotoFlow: (status: LotoStatusOption, targetLabel: String, fromMulti: Boolean) -> Unit =
+        { status, targetLabel, fromMulti ->
+            showGridDangerDialog = false
+            infoStatusDialogOption = null
+            showStatusDialog = false
+            activeStatus = null
+            applyingLotoStatus = status
+            applyingLotoTargetLabel = targetLabel
+            applyingLotoFromMulti = fromMulti
+            isLotoAnimating = false
+            isLotoCompleted = false
+            lotoCompletedAcknowledged = false
+            isApplyingLoto = true
+            val code = status.code.replace("'", "\\'")
+            webViewRef?.evaluateJavascript(
+                "if (typeof startApplyLotoView === 'function') { startApplyLotoView('$code'); }",
+                null
+            )
+        }
+
+    val exitApplyLotoFlow: () -> Unit = {
+        isApplyingLoto = false
+        showMarkCompletedDialog = false
+        isLotoAnimating = false
+        isLotoCompleted = false
+        lotoCompletedAcknowledged = false
+        applyingLotoStatus = null
+        webViewRef?.evaluateJavascript(
+            "if (typeof exitApplyLotoView === 'function') { exitApplyLotoView(); }",
+            null
+        )
+        if (applyingLotoFromMulti && multiSelectedCabinets.isNotEmpty()) {
+            isMultiSelectMode = true
+            syncMultiSelectToWebView(multiSelectedCabinets)
+        }
     }
 
     val exitMultiSelectMode: () -> Unit = {
@@ -338,6 +391,11 @@ fun Loto3DViewerScreen(
         isMultiSelectMode = false
         multiSelectedCabinets = emptyList()
         multiSelectedStatus = null
+        isApplyingLoto = false
+        applyingLotoStatus = null
+        isLotoAnimating = false
+        isLotoCompleted = false
+        lotoCompletedAcknowledged = false
         activeStatus = status
         val code = status?.code ?: ""
         webViewRef?.evaluateJavascript(
@@ -356,6 +414,11 @@ fun Loto3DViewerScreen(
             isMultiSelectMode = false
             multiSelectedCabinets = emptyList()
             multiSelectedStatus = null
+            isApplyingLoto = false
+            applyingLotoStatus = null
+            isLotoAnimating = false
+            isLotoCompleted = false
+            lotoCompletedAcknowledged = false
             webViewRef?.evaluateJavascript(
                 "if (typeof resetToInitialOverview === 'function') { resetToInitialOverview(); }",
                 null
@@ -371,7 +434,7 @@ fun Loto3DViewerScreen(
     }
 
     LaunchedEffect(isMultiSelectMode, multiSelectedCabinets) {
-        if (isMultiSelectMode) {
+        if (isMultiSelectMode && !isApplyingLoto) {
             syncMultiSelectToWebView(multiSelectedCabinets)
         }
     }
@@ -416,27 +479,34 @@ fun Loto3DViewerScreen(
                     settings.displayZoomControls = false
 
                     addJavascriptInterface(
-                        LotoAndroidBridge { id, nameEn, nameEs, isGrid ->
-                            showGridDangerDialog = false
-                            infoStatusDialogOption = null
-                            if (isMultiSelectMode) {
-                                val exists = multiSelectedCabinets.any { it.cabinetId == id }
-                                val updated = if (exists) {
-                                    multiSelectedCabinets.filterNot { it.cabinetId == id }
+                        LotoAndroidBridge(
+                            onSelected = { id, nameEn, nameEs, isGrid ->
+                                if (isApplyingLoto) return@LotoAndroidBridge
+                                showGridDangerDialog = false
+                                infoStatusDialogOption = null
+                                if (isMultiSelectMode) {
+                                    val exists = multiSelectedCabinets.any { it.cabinetId == id }
+                                    val updated = if (exists) {
+                                        multiSelectedCabinets.filterNot { it.cabinetId == id }
+                                    } else {
+                                        multiSelectedCabinets + SelectedCabinet(id, nameEn, nameEs, isGrid)
+                                    }
+                                    multiSelectedCabinets = updated
+                                    val eligibleCodes = getCompatibleStatusesForCabinets(updated).map { it.code }
+                                    if (multiSelectedStatus?.code !in eligibleCodes) {
+                                        multiSelectedStatus = null
+                                    }
+                                    syncMultiSelectToWebView(updated)
                                 } else {
-                                    multiSelectedCabinets + SelectedCabinet(id, nameEn, nameEs, isGrid)
+                                    selectedCabinetStatus = null
+                                    selectedCabinet = SelectedCabinet(id, nameEn, nameEs, isGrid)
                                 }
-                                multiSelectedCabinets = updated
-                                val eligibleCodes = getCompatibleStatusesForCabinets(updated).map { it.code }
-                                if (multiSelectedStatus?.code !in eligibleCodes) {
-                                    multiSelectedStatus = null
-                                }
-                                syncMultiSelectToWebView(updated)
-                            } else {
-                                selectedCabinetStatus = null
-                                selectedCabinet = SelectedCabinet(id, nameEn, nameEs, isGrid)
+                            },
+                            onSequenceCompleted = {
+                                isLotoAnimating = false
+                                isLotoCompleted = true
                             }
-                        },
+                        ),
                         "AndroidBridge"
                     )
 
@@ -478,7 +548,7 @@ fun Loto3DViewerScreen(
         )
 
         AnimatedVisibility(
-            visible = selectedCabinet != null,
+            visible = selectedCabinet != null && !isMultiSelectMode && !isApplyingLoto,
             enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
             exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut(),
             modifier = Modifier
@@ -774,7 +844,7 @@ fun Loto3DViewerScreen(
                                     if (isHighVoltageCorner) {
                                         showGridDangerDialog = true
                                     } else if (selectedCabinetStatus != null) {
-                                        onApplyLoto(equipmentName, localizedCabinetName)
+                                        enterApplyLotoFlow(selectedCabinetStatus!!, localizedCabinetName, false)
                                     }
                                 },
                                 enabled = selectedCabinetStatus != null,
@@ -804,7 +874,7 @@ fun Loto3DViewerScreen(
         }
 
         AnimatedVisibility(
-            visible = isMultiSelectMode,
+            visible = isMultiSelectMode && !isApplyingLoto,
             enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
             exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut(),
             modifier = Modifier
@@ -1084,7 +1154,7 @@ fun Loto3DViewerScreen(
                                     val joinedNames = multiSelectedCabinets.joinToString(", ") {
                                         if (isSpanish) it.nameEs else it.nameEn
                                     }
-                                    onApplyLoto(equipmentName, joinedNames)
+                                    enterApplyLotoFlow(multiSelectedStatus!!, joinedNames, true)
                                 }
                             },
                             enabled = multiSelectedCabinets.isNotEmpty() && multiSelectedStatus != null,
@@ -1106,6 +1176,264 @@ fun Loto3DViewerScreen(
                             )
                         ) {
                             Text(text = stringResource(R.string.loto_cancel_button))
+                        }
+                    }
+                }
+            }
+        }
+
+        AnimatedVisibility(
+            visible = isApplyingLoto,
+            enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
+            exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxWidth(0.45f)
+                .fillMaxHeight()
+                .padding(12.dp)
+        ) {
+            applyingLotoStatus?.let { status ->
+                val statusTitle = if (isSpanish) status.titleEs else status.titleEn
+                val statusActivities = if (isSpanish) status.activitiesEs else status.activitiesEn
+                val annotatedActivities = remember(statusActivities) {
+                    highlightDoorColorPhrases(statusActivities)
+                }
+                Card(
+                    modifier = Modifier.fillMaxSize(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = ComposeColor(0xEE1E1E1E),
+                        contentColor = ComposeColor.White
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = statusTitle,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = ComposeColor(0xFF90CAF9),
+                                    modifier = Modifier.weight(1f)
+                                )
+                                IconButton(
+                                    onClick = exitApplyLotoFlow,
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = stringResource(R.string.loto_back_button),
+                                        tint = ComposeColor.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+
+                            if (applyingLotoTargetLabel.isNotBlank()) {
+                                Text(
+                                    text = applyingLotoTargetLabel,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = ComposeColor(0xFF4ADE80)
+                                )
+                            }
+
+                            Text(
+                                text = stringResource(R.string.loto_type_of_activities),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = ComposeColor(0xFF9CA3AF)
+                            )
+                            Text(
+                                text = annotatedActivities,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = ComposeColor(0xFFD1D5DB)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = { showMarkCompletedDialog = true },
+                                enabled = !isLotoAnimating && !isLotoCompleted,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = ComposeColor(0xFF15803D),
+                                    contentColor = ComposeColor.White,
+                                    disabledContainerColor = ComposeColor(0xFF374151),
+                                    disabledContentColor = ComposeColor(0xFF9CA3AF)
+                                )
+                            ) {
+                                Text(text = stringResource(R.string.loto_mark_completed))
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    val target = applyingLotoTargetLabel.ifBlank { statusTitle }
+                                    onApplyLoto(equipmentName, target)
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = ComposeColor(0xFF90CAF9)
+                                )
+                            ) {
+                                Text(text = stringResource(R.string.loto_step_by_step))
+                            }
+                            OutlinedButton(
+                                onClick = exitApplyLotoFlow,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = ComposeColor.White
+                                )
+                            ) {
+                                Text(text = stringResource(R.string.loto_back_button))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (showMarkCompletedDialog) {
+            AlertDialog(
+                onDismissRequest = { showMarkCompletedDialog = false },
+                containerColor = ComposeColor(0xFF1E1E1E),
+                titleContentColor = ComposeColor.White,
+                textContentColor = ComposeColor.White,
+                title = {
+                    Text(
+                        text = stringResource(R.string.loto_mark_completed),
+                        fontWeight = FontWeight.Bold,
+                        color = ComposeColor(0xFF90CAF9)
+                    )
+                },
+                text = {
+                    Text(
+                        text = stringResource(R.string.loto_mark_completed_confirm_message),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = ComposeColor(0xFFE5E7EB)
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showMarkCompletedDialog = false
+                            isLotoAnimating = true
+                            isLotoCompleted = false
+                            lotoCompletedAcknowledged = false
+                            webViewRef?.evaluateJavascript(
+                                "if (typeof playLotoLockSequence === 'function') { playLotoLockSequence(); }",
+                                null
+                            )
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ComposeColor(0xFF15803D),
+                            contentColor = ComposeColor.White
+                        )
+                    ) {
+                        Text(text = stringResource(R.string.loto_confirm_button))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showMarkCompletedDialog = false }) {
+                        Text(
+                            text = stringResource(R.string.loto_cancel_button),
+                            color = ComposeColor(0xFFBDBDBD)
+                        )
+                    }
+                }
+            )
+        }
+
+        if (isApplyingLoto && isLotoAnimating) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth(0.53f)
+                    .padding(12.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = ComposeColor(0xEE111827),
+                    contentColor = ComposeColor.White,
+                    shadowElevation = 6.dp
+                ) {
+                    Text(
+                        text = stringResource(R.string.loto_animation_caption),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = ComposeColor(0xFFFACC15),
+                        modifier = Modifier
+                            .border(1.dp, ComposeColor(0x88FACC15), RoundedCornerShape(14.dp))
+                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                    )
+                }
+            }
+        }
+
+        if (isApplyingLoto && isLotoCompleted && !lotoCompletedAcknowledged) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth(0.53f)
+                    .padding(12.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = ComposeColor(0xEE14532D),
+                    contentColor = ComposeColor.White,
+                    shadowElevation = 8.dp
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.5.dp, ComposeColor(0xFF4ADE80), RoundedCornerShape(14.dp))
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = ComposeColor(0xFF4ADE80),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = stringResource(R.string.loto_final_completed),
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = ComposeColor.White
+                            )
+                        }
+                        TextButton(onClick = { lotoCompletedAcknowledged = true }) {
+                            Text(
+                                text = stringResource(R.string.loto_got_it),
+                                fontWeight = FontWeight.Bold,
+                                color = ComposeColor(0xFF4ADE80)
+                            )
                         }
                     }
                 }
@@ -1156,7 +1484,7 @@ fun Loto3DViewerScreen(
             )
         }
 
-        if (isMultiSelectMode) {
+        if (isMultiSelectMode && !isApplyingLoto) {
             Box(
                 modifier = Modifier
                     .align(Alignment.TopStart)
@@ -1473,7 +1801,12 @@ fun Loto3DViewerScreen(
                     Button(
                         onClick = {
                             showGridDangerDialog = false
-                            onApplyLoto(equipmentName, targetCabinetLabel)
+                            val chosenStatus = if (isMultiSelectMode) multiSelectedStatus else selectedCabinetStatus
+                            if (chosenStatus != null) {
+                                enterApplyLotoFlow(chosenStatus, targetCabinetLabel, isMultiSelectMode)
+                            } else {
+                                onApplyLoto(equipmentName, targetCabinetLabel)
+                            }
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = ComposeColor(0xFFDC2626),

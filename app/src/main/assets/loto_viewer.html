@@ -149,6 +149,87 @@
             let camAnim = null;
             let previousCameraPos = null;
             let previousControlsTarget = null;
+            let isApplyingLotoView = false;
+            let panelAnimRefs = null;
+            let lotoSeqAnim = null;
+
+            function createPadlockMesh() {
+                const group = new THREE.Group();
+                const bodyMat = new THREE.MeshStandardMaterial({ color: 0xDC2626, roughness: 0.35, metalness: 0.3 });
+                const bandMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.5, metalness: 0.2 });
+                const shackleMat = new THREE.MeshStandardMaterial({ color: 0xD1D5DB, roughness: 0.25, metalness: 0.85 });
+
+                const body = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.042, 0.020), bodyMat);
+                body.position.set(0, -0.020, 0);
+                group.add(body);
+
+                const band = new THREE.Mesh(new THREE.BoxGeometry(0.037, 0.010, 0.021), bandMat);
+                band.position.set(0, -0.022, 0);
+                group.add(band);
+
+                const shackle = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.0036, 8, 18, Math.PI), shackleMat);
+                shackle.position.set(0, 0.001, 0);
+                group.add(shackle);
+
+                group.visible = false;
+                return group;
+            }
+
+            function createMvRotationArrow() {
+                const group = new THREE.Group();
+                const arcMat = new THREE.MeshBasicMaterial({ color: 0xEF4444, side: THREE.DoubleSide });
+                const borderMat = new THREE.MeshBasicMaterial({ color: 0x111111, side: THREE.DoubleSide });
+
+                const outerRing = new THREE.Mesh(
+                    new THREE.RingGeometry(0.052, 0.068, 24, 1, Math.PI * 0.35, Math.PI * 0.78),
+                    borderMat
+                );
+                group.add(outerRing);
+
+                const innerArc = new THREE.Mesh(
+                    new THREE.RingGeometry(0.055, 0.065, 24, 1, Math.PI * 0.37, Math.PI * 0.74),
+                    arcMat
+                );
+                innerArc.position.z = 0.001;
+                group.add(innerArc);
+
+                const headAngle = Math.PI * 1.13;
+                const headR = 0.060;
+                const head = new THREE.Mesh(new THREE.ConeGeometry(0.014, 0.028, 3), arcMat);
+                head.position.set(Math.cos(headAngle) * headR, Math.sin(headAngle) * headR, 0.002);
+                head.rotation.z = headAngle + Math.PI / 2;
+                group.add(head);
+
+                group.visible = false;
+                return group;
+            }
+
+            function resetLotoPanelAnimation() {
+                lotoSeqAnim = null;
+                if (!panelAnimRefs) return;
+                panelAnimRefs.keyGroup.visible = true;
+                panelAnimRefs.keyGroup.position.set(
+                    panelAnimRefs.keyBaseX,
+                    panelAnimRefs.keyBaseY,
+                    panelAnimRefs.keyBaseZ
+                );
+                panelAnimRefs.keyGroup.rotation.z = -0.35;
+
+                panelAnimRefs.dcButton.position.z = panelAnimRefs.dcButtonBaseZ;
+                panelAnimRefs.dcPadlock.visible = false;
+
+                panelAnimRefs.mvSwitchGroup.rotation.z = -0.35;
+                panelAnimRefs.mvRotationArrow.visible = false;
+                panelAnimRefs.mvPadlock.visible = false;
+
+                panelAnimRefs.runLedMat.color.setHex(0x22C55E);
+                panelAnimRefs.runLedMat.emissive.setHex(0x22C55E);
+                panelAnimRefs.runLedMat.emissiveIntensity = 0.9;
+
+                panelAnimRefs.faultLedMat.color.setHex(0x7F1D1D);
+                panelAnimRefs.faultLedMat.emissive.setHex(0xEF4444);
+                panelAnimRefs.faultLedMat.emissiveIntensity = 0.12;
+            }
 
             function saveMaterialOriginals(mat) {
                 if (!mat || mat.userData._savedOrig) return;
@@ -710,12 +791,21 @@
                             panelCenterX + 0.258
                         ];
 
-                        // 1. OFF/ON metallic/brass key switch
+                        // 1. OFF/ON metallic/brass key switch (NO padlock — key turns OFF and slides out)
                         const keyBase = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.022, 18), matBrass);
                         keyBase.rotation.x = Math.PI / 2;
                         keyBase.position.set(topXs[0], topY, panelZ + 0.011);
                         root.add(keyBase);
-                        addBox(0.010, 0.032, 0.022, topXs[0], topY, panelZ + 0.025, matLatch);
+                        const keyGroup = new THREE.Group();
+                        keyGroup.position.set(topXs[0], topY, panelZ + 0.025);
+                        keyGroup.rotation.z = -0.35;
+                        const keyBlade = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.032, 0.022), matLatch);
+                        keyGroup.add(keyBlade);
+                        const keyBow = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.005, 14), matSkid);
+                        keyBow.rotation.y = Math.PI / 2;
+                        keyBow.position.set(0, 0.006, 0.014);
+                        keyGroup.add(keyBow);
+                        root.add(keyGroup);
 
                         // 2. AC VOLTAGE white pilot light
                         const whiteBezel = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.020, 0.012, 16), matSkid);
@@ -727,7 +817,11 @@
                         root.add(whiteLens);
 
                         // 3. RUN glowing green indicator & 4. FAULT/WARNING glowing red indicator
-                        [matLedGreen, matLedRed].forEach((ledMat, idx) => {
+                        const runLedMat = matLedGreen.clone();
+                        const faultLedMat = matLedRed.clone();
+                        faultLedMat.color.setHex(0x7F1D1D);
+                        faultLedMat.emissiveIntensity = 0.12;
+                        [runLedMat, faultLedMat].forEach((ledMat, idx) => {
                             const lx = topXs[idx + 2];
                             const bezel = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.020, 0.012, 16), matLatch);
                             bezel.rotation.x = Math.PI / 2;
@@ -768,6 +862,10 @@
                         dcButton.position.set(dcX, midY, panelZ + 0.020);
                         root.add(dcButton);
 
+                        const dcPadlock = createPadlockMesh();
+                        dcPadlock.position.set(dcX, midY - 0.028, panelZ + 0.038);
+                        root.add(dcPadlock);
+
                         // MV AC DISCONNECT (yellow square base with black outer border and prominent red rotary handle)
                         addBox(0.092, 0.092, 0.012, mvX, midY, panelZ + 0.006, matLatch);
                         addBox(0.080, 0.080, 0.016, mvX, midY, panelZ + 0.008, matYellow);
@@ -775,8 +873,38 @@
                         mvHub.rotation.x = Math.PI / 2;
                         mvHub.position.set(mvX, midY, panelZ + 0.018);
                         root.add(mvHub);
-                        const mvHandle = addBox(0.022, 0.068, 0.022, mvX, midY - 0.004, panelZ + 0.028, matRed);
-                        mvHandle.rotation.z = 0.25;
+                        const mvSwitchGroup = new THREE.Group();
+                        mvSwitchGroup.position.set(mvX, midY, panelZ + 0.028);
+                        mvSwitchGroup.rotation.z = -0.35;
+                        const mvHandle = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.068, 0.022), matRed);
+                        mvHandle.position.set(0, -0.004, 0);
+                        mvSwitchGroup.add(mvHandle);
+                        root.add(mvSwitchGroup);
+
+                        const mvRotationArrow = createMvRotationArrow();
+                        mvRotationArrow.position.set(mvX, midY, panelZ + 0.036);
+                        root.add(mvRotationArrow);
+
+                        const mvPadlock = createPadlockMesh();
+                        mvPadlock.position.set(mvX, midY - 0.032, panelZ + 0.044);
+                        root.add(mvPadlock);
+
+                        panelAnimRefs = {
+                            keyGroup: keyGroup,
+                            keyBaseX: topXs[0],
+                            keyBaseY: topY,
+                            keyBaseZ: panelZ + 0.025,
+                            runLedMat: runLedMat,
+                            faultLedMat: faultLedMat,
+                            dcButton: dcButton,
+                            dcButtonBaseZ: panelZ + 0.020,
+                            dcPadlock: dcPadlock,
+                            dcPadlockTargetY: midY - 0.028,
+                            mvSwitchGroup: mvSwitchGroup,
+                            mvRotationArrow: mvRotationArrow,
+                            mvPadlock: mvPadlock,
+                            mvPadlockTargetY: midY - 0.032
+                        };
 
                         // Bottom row (2 elements): DISPLAY (black capped port) & ETH (unplugged metallic/black port)
                         const botY = panelCenterY - 0.21;
@@ -1397,6 +1525,7 @@
 
                 // Only trigger cabinet selection on a clean short tap (not an orbit/zoom drag)
                 if (Math.hypot(dx, dy) > 10 || dt > 350) return;
+                if (isApplyingLotoView) return;
                 if (clickableDoors.length === 0) return;
 
                 const rect = renderer.domElement.getBoundingClientRect();
@@ -1543,6 +1672,69 @@
                 }
             }
 
+            window.startApplyLotoView = function (statusCode) {
+                const code = (statusCode || '').trim();
+                isApplyingLotoView = true;
+                isMultiSelectMode = false;
+                multiSelectedIds.clear();
+                clearFocusDimming();
+                resetLotoPanelAnimation();
+
+                clickableDoors.forEach(function (door) {
+                    const hex = getStatusColorForDoor(code, door.userData || {});
+                    if (door.material && door.material.color) {
+                        door.material.color.setHex(hex);
+                        door.material.userData._savedOrig = true;
+                        door.material.userData._origColor = door.material.color.clone();
+                    }
+                });
+
+                const centralDoor = clickableDoors.find(function (d) {
+                    return d.userData && d.userData.cabinetId === '11';
+                });
+                if (centralDoor && panelAnimRefs) {
+                    controls.minDistance = 1.15;
+                    const focusPt = new THREE.Vector3(
+                        panelAnimRefs.dcButton.position.x + 0.10,
+                        panelAnimRefs.dcButton.position.y + 0.04,
+                        W / 2
+                    );
+                    const normal = new THREE.Vector3(0, 0.04, 1).normalize();
+                    const fovRad = THREE.MathUtils.degToRad(camera.fov);
+                    const hFovRad = 2 * Math.atan(Math.tan(fovRad / 2) * camera.aspect);
+                    const dist = Math.max(1.30, 0.68 / Math.tan(hFovRad / 2));
+                    const up = new THREE.Vector3(0, 1, 0);
+                    const rightVec = new THREE.Vector3().crossVectors(normal.clone().negate(), up).normalize();
+                    const halfSpanX = dist * Math.tan(hFovRad / 2);
+                    const endTarget = focusPt.clone().add(rightVec.multiplyScalar(halfSpanX * 0.44));
+                    const endPos = endTarget.clone().add(normal.multiplyScalar(dist));
+                    startCameraAnimation(endPos, endTarget, 550);
+                }
+            };
+
+            window.exitApplyLotoView = function () {
+                isApplyingLotoView = false;
+                controls.minDistance = 2.6;
+                resetLotoPanelAnimation();
+                clickableDoors.forEach(function (door) {
+                    if (door.material && door.material.color) {
+                        door.material.color.setHex(STATUS_COLORS.DEFAULT);
+                        door.material.userData._savedOrig = true;
+                        door.material.userData._origColor = door.material.color.clone();
+                    }
+                });
+                clearFocusDimming();
+                window.resetToInitialOverview();
+            };
+
+            window.playLotoLockSequence = function () {
+                resetLotoPanelAnimation();
+                lotoSeqAnim = {
+                    startTime: performance.now(),
+                    duration: 4500
+                };
+            };
+
             // Render loop
             function animate() {
                 requestAnimationFrame(animate);
@@ -1554,6 +1746,69 @@
                     controls.target.lerpVectors(camAnim.startTarget, camAnim.endTarget, ease);
                     if (t >= 1) {
                         camAnim = null;
+                    }
+                }
+                if (lotoSeqAnim && panelAnimRefs) {
+                    const elapsed = performance.now() - lotoSeqAnim.startTime;
+                    const p = Math.min(elapsed / lotoSeqAnim.duration, 1);
+
+                    // Step 1 (0.00 -> 0.30): Rotate key to OFF (left) and slide out (NO padlock)
+                    if (p <= 0.14) {
+                        const k = p / 0.14;
+                        panelAnimRefs.keyGroup.visible = true;
+                        panelAnimRefs.keyGroup.rotation.z = -0.35 + (0.90 * k);
+                        panelAnimRefs.keyGroup.position.z = panelAnimRefs.keyBaseZ;
+                    } else if (p <= 0.28) {
+                        const k = (p - 0.14) / 0.14;
+                        panelAnimRefs.keyGroup.visible = true;
+                        panelAnimRefs.keyGroup.rotation.z = 0.55;
+                        panelAnimRefs.keyGroup.position.z = panelAnimRefs.keyBaseZ + (0.12 * k);
+                    } else {
+                        panelAnimRefs.keyGroup.visible = false;
+                    }
+
+                    // Step 2 (0.30 -> 0.62): Depress DC DISCONNECT and latch Padlock #1
+                    if (p >= 0.30 && p <= 0.44) {
+                        const k = (p - 0.30) / 0.14;
+                        panelAnimRefs.dcButton.position.z = panelAnimRefs.dcButtonBaseZ - (0.008 * k);
+                    } else if (p > 0.44) {
+                        panelAnimRefs.dcButton.position.z = panelAnimRefs.dcButtonBaseZ - 0.008;
+                    }
+                    if (p >= 0.44) {
+                        const k = Math.min((p - 0.44) / 0.16, 1);
+                        panelAnimRefs.dcPadlock.visible = true;
+                        panelAnimRefs.dcPadlock.position.y = panelAnimRefs.dcPadlockTargetY + (0.05 * (1 - k));
+                    }
+
+                    // Step 3 (0.62 -> 0.96): Show curved rotation arrow, turn MV DISCONNECT left to OFF, latch Padlock #2
+                    if (p >= 0.62 && p < 0.80) {
+                        const k = (p - 0.62) / 0.18;
+                        panelAnimRefs.mvRotationArrow.visible = true;
+                        panelAnimRefs.mvSwitchGroup.rotation.z = -0.35 + (1.30 * k);
+                    } else if (p >= 0.80) {
+                        panelAnimRefs.mvRotationArrow.visible = false;
+                        panelAnimRefs.mvSwitchGroup.rotation.z = 0.95;
+                        const k = Math.min((p - 0.80) / 0.16, 1);
+                        panelAnimRefs.mvPadlock.visible = true;
+                        panelAnimRefs.mvPadlock.position.y = panelAnimRefs.mvPadlockTargetY + (0.05 * (1 - k));
+                    }
+
+                    // Indicator LEDs (0.82 -> 1.00): RUN off, FAULT/WARNING on
+                    if (p >= 0.82) {
+                        const k = Math.min((p - 0.82) / 0.18, 1);
+                        panelAnimRefs.runLedMat.emissiveIntensity = 0.9 * (1 - k) + 0.06;
+                        panelAnimRefs.faultLedMat.emissiveIntensity = 0.12 + (1.03 * k);
+                        if (k > 0.5) {
+                            panelAnimRefs.runLedMat.color.setHex(0x1B3A24);
+                            panelAnimRefs.faultLedMat.color.setHex(0xEF4444);
+                        }
+                    }
+
+                    if (p >= 1) {
+                        lotoSeqAnim = null;
+                        if (window.AndroidBridge && typeof window.AndroidBridge.onLotoSequenceCompleted === 'function') {
+                            window.AndroidBridge.onLotoSequenceCompleted();
+                        }
                     }
                 }
                 controls.update();
