@@ -39,4 +39,8 @@
     <string name="loto_status_info">Información del estado</string>
     <string name="loto_purple_area_warning">⚠️ Área Púrpura (Situación Específica): Este gabinete solo se considera desenergizado (verde) en los estados 2 y 5A si las cajas de strings del campo fotovoltaico desconectan el polo positivo y negativo, o si el trabajo se realiza en horario nocturno.</string>
     <string name="loto_grid_high_voltage_warning">⚠️ PELIGRO DE ALTA TENSIÓN: Este gabinete solo se considera desenergizado en los estados 2 y 4 si la subestación / red se encuentra completamente desconectada y aislada del inversor.</string>
+    <string name="loto_multiple_cabinets">Múltiples Gabinetes</string>
+    <string name="loto_multi_select_banner">Seleccione el resto de gabinetes donde trabajará</string>
+    <string name="loto_multi_cabinets_header">Múltiples Gabinetes (%1$d)</string>
+    <string name="loto_multi_no_compatible_status">Ningún estado LOTOTO es compatible con todos los gabinetes seleccionados. Deseleccione un gabinete para ver opciones compatibles.</string>
 </resources>
