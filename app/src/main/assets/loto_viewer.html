@@ -1733,18 +1733,19 @@
                 try {
                     resetLotoPanelAnimation();
                     controls.enabled = false;
+                    controls.enableDamping = false;
                     if (panelAnimRefs && panelAnimRefs.overlayPlane) {
                         controls.minDistance = 1.25;
                         const focusPt = new THREE.Vector3();
                         panelAnimRefs.overlayPlane.getWorldPosition(focusPt);
-                        const normal = new THREE.Vector3(0, 0.03, 1).normalize();
+                        const normal = new THREE.Vector3(0, 0.04, 1).normalize();
                         const fovRad = THREE.MathUtils.degToRad(camera.fov);
                         const hFovRad = 2 * Math.atan(Math.tan(fovRad / 2) * camera.aspect);
-                        const dist = Math.max(1.55, 0.72 / Math.tan(hFovRad / 2));
+                        const dist = Math.max(1.65, 0.78 / Math.tan(hFovRad / 2));
                         const up = new THREE.Vector3(0, 1, 0);
                         const rightVec = new THREE.Vector3().crossVectors(normal.clone().negate(), up).normalize();
                         const halfSpanX = dist * Math.tan(hFovRad / 2);
-                        const endTarget = focusPt.clone().add(rightVec.multiplyScalar(halfSpanX * 0.40));
+                        const endTarget = focusPt.clone().add(rightVec.multiplyScalar(halfSpanX * 0.38));
                         const endPos = endTarget.clone().add(normal.multiplyScalar(dist));
 
                         camAnim = {
@@ -1770,6 +1771,7 @@
                     }
                 } catch (e) {
                     console.error('playLotoLockSequence error:', e);
+                    controls.enableDamping = true;
                     controls.enabled = true;
                 }
             };
@@ -1785,9 +1787,11 @@
                         : (1 - Math.pow(1 - t, 3));
                     camera.position.lerpVectors(camAnim.startPos, camAnim.endPos, ease);
                     controls.target.lerpVectors(camAnim.startTarget, camAnim.endTarget, ease);
+                    camera.lookAt(controls.target);
                     if (t >= 1) {
                         camera.position.copy(camAnim.endPos);
                         controls.target.copy(camAnim.endTarget);
+                        camera.lookAt(controls.target);
                         const onDone = camAnim.onComplete;
                         camAnim = null;
                         if (typeof onDone === 'function') {
@@ -1796,6 +1800,7 @@
                     }
                 }
                 if (lotoSeqAnim && panelAnimRefs) {
+                    camera.lookAt(controls.target);
                     const elapsed = performance.now() - lotoSeqAnim.startTime;
                     const p = Math.min(elapsed / lotoSeqAnim.duration, 1);
 
@@ -1853,6 +1858,9 @@
 
                     if (p >= 1) {
                         lotoSeqAnim = null;
+                        controls.enableDamping = false;
+                        controls.update();
+                        controls.enableDamping = true;
                         controls.enabled = true;
                         if (window.AndroidBridge && typeof window.AndroidBridge.onLotoSequenceCompleted === 'function') {
                             window.AndroidBridge.onLotoSequenceCompleted();
