@@ -411,20 +411,8 @@ fun Loto3DViewerScreen(
     LaunchedEffect(resetViewTrigger) {
         if (resetViewTrigger != lastHandledReset) {
             lastHandledReset = resetViewTrigger
-            showGridDangerDialog = false
-            infoStatusDialogOption = null
-            selectedCabinetStatus = null
-            selectedCabinet = null
-            isMultiSelectMode = false
-            multiSelectedCabinets = emptyList()
-            multiSelectedStatus = null
-            isApplyingLoto = false
-            applyingLotoStatus = null
-            isLotoAnimating = false
-            isLotoCompleted = false
-            lotoCompletedAcknowledged = false
             webViewRef?.evaluateJavascript(
-                "if (typeof resetToInitialOverview === 'function') { resetToInitialOverview(); }",
+                "if (typeof resetCameraOnlyToOverview === 'function') { resetCameraOnlyToOverview(); }",
                 null
             )
         }
