@@ -150,8 +150,14 @@
             let previousCameraPos = null;
             let previousControlsTarget = null;
             let isApplyingLotoView = false;
+            let currentApplyStatusCode = '';
             let panelAnimRefs = null;
             let lotoSeqAnim = null;
+            let dcHandlesAnim = null;
+            let dcDisconnectHandles = [];
+            let dcPilotLedMats = [];
+            let placardMeshes = [];
+            let energizedPlacardMat = null;
 
             function createPadlockMesh() {
                 const group = new THREE.Group();
@@ -229,6 +235,185 @@
                 panelAnimRefs.faultLedMat.color.setHex(0x7F1D1D);
                 panelAnimRefs.faultLedMat.emissive.setHex(0xEF4444);
                 panelAnimRefs.faultLedMat.emissiveIntensity = 0.12;
+            }
+
+            function setDcPilotLedsGreen(isGreen) {
+                dcPilotLedMats.forEach(function (mat) {
+                    if (isGreen) {
+                        mat.color.setHex(0x22C55E);
+                        mat.emissive.setHex(0x22C55E);
+                        mat.emissiveIntensity = 0.95;
+                    } else {
+                        mat.color.setHex(0xF8FAFC);
+                        mat.emissive.setHex(0xE2E8F0);
+                        mat.emissiveIntensity = 0.08;
+                    }
+                });
+            }
+
+            function setEnergizedPlacardsVisible(visible, statusCode) {
+                const code = (statusCode || '').trim();
+                placardMeshes.forEach(function (item) {
+                    if (!visible || !code) {
+                        item.mesh.visible = false;
+                    } else {
+                        const doorColor = getStatusColorForDoor(code, item.meta || {});
+                        item.mesh.visible = (doorColor === STATUS_COLORS.RED);
+                    }
+                });
+            }
+
+            function resetPostLotoVisuals() {
+                dcHandlesAnim = null;
+                dcDisconnectHandles.forEach(function (pivot) {
+                    pivot.rotation.x = 0;
+                });
+                setDcPilotLedsGreen(false);
+                setEnergizedPlacardsVisible(false, '');
+            }
+
+            function getEnergizedPlacardMaterial() {
+                if (energizedPlacardMat) return energizedPlacardMat;
+
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 360;
+                const ctx = canvas.getContext('2d');
+
+                // Outer background & dark border
+                ctx.fillStyle = '#111827';
+                ctx.fillRect(0, 0, 512, 360);
+
+                // Top light-gray panels (Left & Right)
+                ctx.fillStyle = '#AEB3B8';
+                ctx.fillRect(6, 6, 247, 162);
+                ctx.fillRect(259, 6, 247, 162);
+
+                // Left-top: yellow/black high-voltage lightning triangle
+                ctx.beginPath();
+                ctx.moveTo(130, 22);
+                ctx.lineTo(204, 150);
+                ctx.lineTo(56, 150);
+                ctx.closePath();
+                ctx.fillStyle = '#FACC15';
+                ctx.fill();
+                ctx.lineWidth = 6;
+                ctx.lineJoin = 'round';
+                ctx.strokeStyle = '#111827';
+                ctx.stroke();
+
+                // Lightning bolt inside triangle
+                ctx.beginPath();
+                ctx.moveTo(136, 56);
+                ctx.lineTo(118, 96);
+                ctx.lineTo(134, 96);
+                ctx.lineTo(122, 134);
+                ctx.lineTo(146, 88);
+                ctx.lineTo(130, 88);
+                ctx.closePath();
+                ctx.fillStyle = '#111827';
+                ctx.fill();
+
+                // Right-top: red prohibition circle-slash over technician & raised hand
+                const cx = 382;
+                const cy = 87;
+                ctx.beginPath();
+                ctx.arc(cx, cy, 62, 0, Math.PI * 2);
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fill();
+
+                // Technician head/shoulder outline on left
+                ctx.strokeStyle = '#111827';
+                ctx.lineWidth = 3.5;
+                ctx.beginPath();
+                ctx.arc(cx - 24, cy - 2, 12, Math.PI * 0.9, Math.PI * 2.1);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(cx - 44, cy + 36);
+                ctx.quadraticCurveTo(cx - 34, cy + 12, cx - 12, cy + 16);
+                ctx.stroke();
+
+                // Solid black raised open hand on right
+                ctx.fillStyle = '#111827';
+                ctx.beginPath();
+                ctx.roundRect(cx + 2, cy - 2, 28, 30, 6);
+                ctx.fill();
+                [[-2, -26, 22], [5, -32, 28], [12, -30, 26], [19, -24, 20]].forEach(function (f) {
+                    ctx.beginPath();
+                    ctx.roundRect(cx + f[0], cy + f[1], 5.5, f[2], 3);
+                    ctx.fill();
+                });
+
+                // Red prohibition ring & diagonal slash
+                ctx.strokeStyle = '#DC2626';
+                ctx.lineWidth = 12;
+                ctx.beginPath();
+                ctx.arc(cx, cy, 56, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(cx - 40, cy - 40);
+                ctx.lineTo(cx + 40, cy + 40);
+                ctx.stroke();
+
+                // Helper for small black warning triangle with '!'
+                function drawMiniWarn(x, y, s) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, y - s);
+                    ctx.lineTo(x + s, y + s * 0.75);
+                    ctx.lineTo(x - s, y + s * 0.75);
+                    ctx.closePath();
+                    ctx.fillStyle = '#111827';
+                    ctx.fill();
+                    ctx.fillStyle = '#FACC15';
+                    ctx.font = 'bold 16px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('!', x, y + s * 0.55);
+                }
+
+                // Middle & Bottom Left Yellow Bars (#FACC15)
+                ctx.fillStyle = '#FACC15';
+                ctx.fillRect(6, 172, 247, 88);
+                ctx.fillRect(6, 264, 247, 90);
+
+                ctx.fillStyle = '#111827';
+                ctx.textAlign = 'center';
+                drawMiniWarn(32, 202, 13);
+                drawMiniWarn(228, 202, 13);
+                ctx.font = 'bold 28px sans-serif';
+                ctx.fillText('ATENCIÓN', 130, 212);
+                ctx.font = 'bold 19px sans-serif';
+                ctx.fillText('ARMARIO ENERGIZADO.', 130, 244);
+
+                drawMiniWarn(32, 294, 13);
+                drawMiniWarn(228, 294, 13);
+                ctx.font = 'bold 28px sans-serif';
+                ctx.fillText('ATTENTION', 130, 304);
+                ctx.font = 'bold 19px sans-serif';
+                ctx.fillText('ENERGIZED CABINET.', 130, 336);
+
+                // Middle & Bottom Right Red Bars (#DC2626)
+                ctx.fillStyle = '#DC2626';
+                ctx.fillRect(259, 172, 247, 88);
+                ctx.fillRect(259, 264, 247, 90);
+
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = 'bold 27px sans-serif';
+                ctx.fillText('PROHIBIDO', 382, 210);
+                ctx.fillText('ABRIR', 382, 244);
+
+                ctx.fillText('FORBIDDEN', 382, 302);
+                ctx.fillText('TO OPEN', 382, 336);
+
+                const tex = new THREE.CanvasTexture(canvas);
+                tex.encoding = THREE.sRGBEncoding;
+                tex.anisotropy = 4;
+                energizedPlacardMat = new THREE.MeshBasicMaterial({
+                    map: tex,
+                    polygonOffset: true,
+                    polygonOffsetFactor: -2,
+                    polygonOffsetUnits: -2
+                });
+                return energizedPlacardMat;
             }
 
             function saveMaterialOriginals(mat) {
@@ -386,6 +571,33 @@
                     mesh.userData = Object.assign({ isDoor: true }, meta);
                     root.add(mesh);
                     clickableDoors.push(mesh);
+
+                    const fn = (meta && meta.focusNormal) ? meta.focusNormal : [0, 0, 1];
+                    const isXFace = Math.abs(fn[0]) > Math.abs(fn[2]);
+                    const doorW = isXFace ? d : w;
+                    const placardW = Math.min(doorW * 0.38, 0.36);
+                    const placardH = placardW * (360 / 512);
+                    const placardGeo = new THREE.PlaneGeometry(placardW, placardH);
+                    const placardMesh = new THREE.Mesh(placardGeo, getEnergizedPlacardMaterial());
+
+                    const isCycloneBay = meta && (meta.cabinetId === '9' || meta.cabinetId === '19');
+                    const placardY = isCycloneBay
+                        ? (y + h * 0.37)
+                        : (h > 1.2 ? (y + h * 0.08) : y);
+
+                    if (isXFace) {
+                        const xSign = fn[0] >= 0 ? 1 : -1;
+                        placardMesh.position.set(x + xSign * 0.008, placardY, z);
+                        placardMesh.rotation.y = xSign > 0 ? Math.PI / 2 : -Math.PI / 2;
+                    } else {
+                        const zSign = fn[2] >= 0 ? 1 : -1;
+                        placardMesh.position.set(x, placardY, z + zSign * 0.008);
+                        if (zSign < 0) placardMesh.rotation.y = Math.PI;
+                    }
+                    placardMesh.visible = false;
+                    root.add(placardMesh);
+                    placardMeshes.push({ mesh: placardMesh, meta: meta || {} });
+
                     return mesh;
                 }
 
@@ -1110,40 +1322,55 @@
                         neck.position.set(leftX - 0.042, hy, hz);
                         root.add(neck);
 
+                        // Pivot group centered at handle axis (leftX, hy, hz) for 0° ON -> 90° CCW OFF rotation
+                        const handlePivot = new THREE.Group();
+                        handlePivot.position.set(leftX, hy, hz);
+
                         // Rounded elbow joint
                         const elbow = new THREE.Mesh(new THREE.SphereGeometry(0.027, 14, 14), matGrayHandle);
-                        elbow.position.set(leftX - 0.064, hy, hz);
-                        root.add(elbow);
+                        elbow.position.set(-0.064, 0, 0);
+                        handlePivot.add(elbow);
 
                         // Thick, solid, slightly tapered vertical grip pointing straight down (-Y)
                         const gripLen = 0.145;
                         const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.020, gripLen, 16), matGrayHandle);
-                        grip.position.set(leftX - 0.064, hy - gripLen / 2, hz);
-                        root.add(grip);
+                        grip.position.set(-0.064, -gripLen / 2, 0);
+                        handlePivot.add(grip);
 
                         // Subtle light-gray front accent stripe on grip face
-                        addBox(0.010, gripLen * 0.72, 0.014, leftX - 0.086, hy - gripLen * 0.45, hz, matHandleStripe);
+                        const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.010, gripLen * 0.72, 0.014), matHandleStripe);
+                        stripe.position.set(-0.086, -gripLen * 0.45, 0);
+                        handlePivot.add(stripe);
 
                         // Rounded bottom tip
                         const gripTip = new THREE.Mesh(new THREE.SphereGeometry(0.020, 12, 12), matGrayHandle);
-                        gripTip.position.set(leftX - 0.064, hy - gripLen, hz);
-                        root.add(gripTip);
+                        gripTip.position.set(-0.064, -gripLen, 0);
+                        handlePivot.add(gripTip);
+
+                        root.add(handlePivot);
+                        dcDisconnectHandles.push(handlePivot);
                     });
 
-                    // 2 small circular pilot LEDs on center upper door (c === 1) to the left of upper handle
+                    // 2 small circular pilot LEDs on center upper door (c === 1) — ALWAYS white/unlit (#F8FAFC) when ON
                     if (c === 1) {
                         const ledY = topHandleY + 0.005;
-                        const ledZs = [colZ - 0.175, colZ - 0.125]; // left: green, right: dark gray/off
-                        [matDcLedGreen, matDcLedOff].forEach((ledMat, idx) => {
-                            const lz = ledZs[idx];
+                        const ledZs = [colZ - 0.175, colZ - 0.125];
+                        ledZs.forEach((lz) => {
                             const bezel = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.010, 16), matLatch);
                             bezel.rotation.z = Math.PI / 2;
                             bezel.position.set(leftX - 0.005, ledY, lz);
                             root.add(bezel);
 
-                            const lens = new THREE.Mesh(new THREE.SphereGeometry(0.013, 14, 14), ledMat);
+                            const pilotMat = new THREE.MeshStandardMaterial({
+                                color: 0xF8FAFC,
+                                emissive: 0xE2E8F0,
+                                emissiveIntensity: 0.08,
+                                roughness: 0.35
+                            });
+                            const lens = new THREE.Mesh(new THREE.SphereGeometry(0.013, 14, 14), pilotMat);
                             lens.position.set(leftX - 0.010, ledY, lz);
                             root.add(lens);
+                            dcPilotLedMats.push(pilotMat);
                         });
                     }
                 }
@@ -1218,6 +1445,10 @@
             function clearEquipmentGroup() {
                 clearFocusDimming();
                 clickableDoors = [];
+                dcDisconnectHandles = [];
+                dcPilotLedMats = [];
+                placardMeshes = [];
+                dcHandlesAnim = null;
                 roofBlockerMesh = null;
                 camAnim = null;
                 previousCameraPos = null;
@@ -1335,6 +1566,13 @@
             };
 
             window.resetToInitialOverview = function () {
+                isApplyingLotoView = false;
+                currentApplyStatusCode = '';
+                controls.enabled = true;
+                controls.enableDamping = true;
+                controls.minDistance = 2.6;
+                resetLotoPanelAnimation();
+                resetPostLotoVisuals();
                 isMultiSelectMode = false;
                 multiSelectedIds.clear();
                 clearFocusDimming();
@@ -1405,6 +1643,7 @@
 
             window.applyLotoStatusColors = function (statusCode) {
                 const code = (statusCode || '').trim();
+                resetPostLotoVisuals();
                 clearFocusDimming();
                 previousCameraPos = null;
                 previousControlsTarget = null;
@@ -1676,11 +1915,13 @@
             window.startApplyLotoView = function (statusCode) {
                 try {
                     const code = (statusCode || '').trim();
+                    currentApplyStatusCode = code;
                     isApplyingLotoView = true;
                     isMultiSelectMode = false;
                     multiSelectedIds.clear();
                     clearFocusDimming();
                     resetLotoPanelAnimation();
+                    resetPostLotoVisuals();
 
                     clickableDoors.forEach(function (door) {
                         const hex = getStatusColorForDoor(code, door.userData || {});
@@ -1712,9 +1953,11 @@
             window.exitApplyLotoView = function () {
                 try {
                     isApplyingLotoView = false;
+                    currentApplyStatusCode = '';
                     controls.enabled = true;
                     controls.minDistance = 2.6;
                     resetLotoPanelAnimation();
+                    resetPostLotoVisuals();
                     clickableDoors.forEach(function (door) {
                         if (door.material && door.material.color) {
                             door.material.color.setHex(STATUS_COLORS.DEFAULT);
@@ -1862,9 +2105,32 @@
                         controls.update();
                         controls.enableDamping = true;
                         controls.enabled = true;
+
+                        setEnergizedPlacardsVisible(true, currentApplyStatusCode);
+                        if (currentApplyStatusCode &&
+                            getStatusColorForDoor(currentApplyStatusCode, { cabinetId: '1' }) === STATUS_COLORS.GREEN) {
+                            setDcPilotLedsGreen(true);
+                            dcHandlesAnim = {
+                                startTime: performance.now(),
+                                duration: 700
+                            };
+                        }
+
                         if (window.AndroidBridge && typeof window.AndroidBridge.onLotoSequenceCompleted === 'function') {
                             window.AndroidBridge.onLotoSequenceCompleted();
                         }
+                    }
+                }
+                if (dcHandlesAnim) {
+                    const elapsed = performance.now() - dcHandlesAnim.startTime;
+                    const t = Math.min(elapsed / dcHandlesAnim.duration, 1);
+                    const ease = 1 - Math.pow(1 - t, 3);
+                    const angle = (-Math.PI / 2) * ease;
+                    dcDisconnectHandles.forEach(function (pivot) {
+                        pivot.rotation.x = angle;
+                    });
+                    if (t >= 1) {
+                        dcHandlesAnim = null;
                     }
                 }
                 if (controls.enabled) {
