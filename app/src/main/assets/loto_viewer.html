@@ -155,6 +155,7 @@
             let lotoSeqAnim = null;
             let dcHandlesAnim = null;
             let dcDisconnectHandles = [];
+            let dcHandlePadlocks = [];
             let dcPilotLedMats = [];
             let placardMeshes = [];
             let energizedPlacardMat = null;
@@ -267,6 +268,9 @@
                 dcHandlesAnim = null;
                 dcDisconnectHandles.forEach(function (pivot) {
                     pivot.rotation.x = 0;
+                });
+                dcHandlePadlocks.forEach(function (padlock) {
+                    padlock.visible = false;
                 });
                 setDcPilotLedsGreen(false);
                 setEnergizedPlacardsVisible(false, '');
@@ -1349,6 +1353,12 @@
 
                         root.add(handlePivot);
                         dcDisconnectHandles.push(handlePivot);
+
+                        const handlePadlock = createPadlockMesh();
+                        handlePadlock.rotation.y = -Math.PI / 2;
+                        handlePadlock.position.set(leftX - 0.088, hy - 0.014, hz + 0.082);
+                        root.add(handlePadlock);
+                        dcHandlePadlocks.push(handlePadlock);
                     });
 
                     // 2 small circular pilot LEDs on center upper door (c === 1) — ALWAYS white/unlit (#F8FAFC) when ON
@@ -1446,6 +1456,7 @@
                 clearFocusDimming();
                 clickableDoors = [];
                 dcDisconnectHandles = [];
+                dcHandlePadlocks = [];
                 dcPilotLedMats = [];
                 placardMeshes = [];
                 dcHandlesAnim = null;
@@ -1562,6 +1573,38 @@
                     startCameraAnimation(restorePos, restoreTarget, 520);
                 } else {
                     window.resetToInitialOverview();
+                }
+            };
+
+            window.resetCameraOnlyToOverview = function () {
+                try {
+                    const targetPose = (currentModelFile === 'model_hem2.glb')
+                        ? getHemGen2OverviewPose(false)
+                        : {
+                            position: new THREE.Vector3(2.8, 2.2, 3.2),
+                            target: new THREE.Vector3(0, 0.75, 0)
+                        };
+                    controls.enabled = false;
+                    controls.enableDamping = false;
+                    camAnim = {
+                        startPos: camera.position.clone(),
+                        startTarget: controls.target.clone(),
+                        endPos: targetPose.position.clone(),
+                        endTarget: targetPose.target.clone(),
+                        startTime: performance.now(),
+                        duration: 900,
+                        easeType: 'inOutCubic',
+                        onComplete: function () {
+                            controls.enableDamping = false;
+                            controls.update();
+                            controls.enableDamping = true;
+                            controls.enabled = true;
+                        }
+                    };
+                } catch (e) {
+                    console.error('resetCameraOnlyToOverview error:', e);
+                    controls.enableDamping = true;
+                    controls.enabled = true;
                 }
             };
 
@@ -2131,6 +2174,9 @@
                     });
                     if (t >= 1) {
                         dcHandlesAnim = null;
+                        dcHandlePadlocks.forEach(function (padlock) {
+                            padlock.visible = true;
+                        });
                     }
                 }
                 if (controls.enabled) {
